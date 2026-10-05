@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ familiar_atual.nome }} - Controlo Financeiro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; font-size: 11pt; color: black; }
+      .card-relatorio { border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
+
+  <!-- Toast Flutuante -->
+  {% if messages %}
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full no-print">
+      {% for message in messages %}
+        <div class="toast-item flex items-center justify-between p-3.5 rounded-xl shadow-lg border backdrop-blur-md transition-all duration-500 transform translate-y-0 opacity-100 {% if message.tags == 'error' %}bg-rose-50/95 border-rose-200 text-rose-900{% else %}bg-emerald-50/95 border-emerald-200 text-emerald-900{% endif %}">
+          <div class="flex items-center gap-2.5 text-xs font-semibold">
+            <span class="text-base">{% if message.tags == 'error' %}⚠️{% else %}✅{% endif %}</span>
+            <span>{{ message }}</span>
+          </div>
+          <button type="button" onclick="fecharToast(this.parentElement)" class="text-slate-400 hover:text-slate-700 text-xs ml-3 font-bold transition">
+            ✕
+          </button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Navbar -->
+  <nav class="bg-indigo-900 text-white p-4 shadow-md no-print">
+    <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-4">
+      
+      <div class="flex items-center gap-3">
+        <a href="{% url 'meus_familiares' %}" 
+           title="Ver todos os familiares"
+           class="flex items-center gap-1.5 bg-indigo-800 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg border border-indigo-700 transition shadow-sm">
+          <span>←</span> <span>Meus Familiares</span>
+        </a>
+
+        <div class="border-l border-indigo-700 pl-3">
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold leading-tight">{{ familiar_atual.nome }}</h1>
+            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full {% if eh_gestor %}bg-emerald-500 text-white{% else %}bg-indigo-700 text-indigo-200{% endif %}">
+              {% if eh_gestor %}GESTOR{% else %}MEMBRO{% endif %}
+            </span>
+          </div>
+          {% if eh_gestor %}
+            <p class="text-xs text-indigo-200">
+              Código Família: <span class="font-mono bg-indigo-800 px-1.5 py-0.5 rounded border border-indigo-700 text-white font-bold select-all">{{ familiar_atual.codigo_convite }}</span>
+            </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        {% if eh_gestor %}
+        <!-- Botão Gestão de Membros -->
+        <button type="button" onclick="document.getElementById('modal-membros').classList.remove('hidden')" 
+                class="flex items-center gap-1.5 bg-indigo-800 hover:bg-indigo-700 text-xs font-semibold px-3 py-2 rounded-lg border border-indigo-700 transition">
+          <span>👥</span> <span class="hidden sm:inline">Membros</span>
+        </button>
+
+        <!-- Sino de Notificações -->
+        <div class="relative">
+          <button id="btn-notificacao" type="button" 
+                  class="relative p-2 bg-indigo-800 hover:bg-indigo-700 border border-indigo-700 rounded-lg text-white transition">
+            <span class="text-base">🔔</span>
+            {% if total_solicitacoes > 0 %}
+              <span class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                {{ total_solicitacoes }}
+              </span>
+            {% endif %}
+          </button>
+
+          <div id="dropdown-notificacao" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-white text-slate-800 rounded-xl shadow-xl border border-slate-200 z-50 p-4 space-y-3">
+            <div class="flex justify-between items-center border-b pb-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Solicitações de Entrada</span>
+              <span class="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold">{{ total_solicitacoes }} pendente{{ total_solicitacoes|pluralize:"s" }}</span>
+            </div>
+
+            {% if solicitacoes_pendentes %}
+              <div class="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                {% for s in solicitacoes_pendentes %}
+                <div class="py-2.5 space-y-2">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800">{{ s.usuario.first_name|default:s.usuario.username }}</p>
+                    <p class="text-xs text-slate-500">{{ s.usuario.email|default:"Sem e-mail informado" }}</p>
+                    <p class="text-[10px] text-slate-400">Solicitado em {{ s.solicitado_em|date:"d/m/Y H:i" }}</p>
+                  </div>
+                  <div class="flex gap-2">
+                    <a href="{% url 'responder_solicitacao' s.id 'aprovar' %}"
+                       class="flex-1 text-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg transition shadow-sm">
+                      Aprovar
+                    </a>
+                    <a href="{% url 'responder_solicitacao' s.id 'recusar' %}"
+                       class="flex-1 text-center bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold py-1.5 rounded-lg transition shadow-sm">
+                      Recusar
+                    </a>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="text-xs text-slate-400 text-center py-4">Nenhuma solicitação pendente no momento.</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if vinculos|length > 1 %}
+          <div class="hidden sm:flex items-center gap-1.5 bg-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-700">
+            <span class="text-xs text-indigo-200">Trocar:</span>
+            <select onchange="window.location.href='/selecionar-familiar/' + this.value + '/'" class="bg-transparent text-white font-medium text-xs outline-none cursor-pointer">
+              {% for v in vinculos %}
+                <option value="{{ v.familiar.id }}" class="text-slate-800" {% if v.familiar.id == familiar_atual.id %}selected{% endif %}>
+                  {{ v.familiar.nome }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        {% endif %}
+
+        <span class="text-xs text-indigo-200 hidden md:inline">Olá, <strong>{{ request.user.first_name|default:request.user.username }}</strong></span>
+        <a href="{% url 'logout' %}" class="text-xs bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg transition font-medium">Sair</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- Barra de Período e Exportações -->
+    <header class="flex flex-wrap justify-between items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 card-relatorio">
+      <form method="get" class="flex flex-wrap items-center gap-2">
+        <label class="text-sm font-semibold text-slate-700">Espelho Mensal:</label>
+        <select name="mes" class="border rounded-lg px-3 py-1.5 bg-slate-50 text-sm font-medium">
+          {% for num, nome in meses %}
+            <option value="{{ num }}" {% if num == mes_selecionado %}selected{% endif %}>{{ nome }}</option>
+          {% endfor %}
+        </select>
+        <input type="number" name="ano" value="{{ ano_selecionado }}" class="border rounded-lg px-3 py-1.5 w-24 bg-slate-50 text-sm font-medium">
+        <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition">
+          Filtrar
+        </button>
+      </form>
+
+      <div class="flex items-center gap-2">
+        <a href="{% url 'exportar_csv' familiar_atual.id %}?mes={{ mes_selecionado }}&ano={{ ano_selecionado }}" 
+           class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+          <span>📊</span> Exportar CSV (Excel)
+        </a>
+        <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow">
+          <span>🖨️</span> Imprimir (PDF)
+        </button>
+      </div>
+    </header>
+
+    <!-- Cards de Saldo -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
+        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Total Entradas (Benefícios / Renda)</p>
+        <p class="text-2xl font-bold text-emerald-600 mt-1">R$ {{ total_entradas|floatformat:2 }}</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
+        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Total Saídas (Despesas do Mês)</p>
+        <p class="text-2xl font-bold text-rose-600 mt-1">R$ {{ total_saidas|floatformat:2 }}</p>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
+        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Saldo Restante do Período</p>
+        <p class="text-2xl font-bold {% if saldo >= 0 %}text-indigo-600{% else %}text-rose-600{% endif %} mt-1">
+          R$ {{ saldo|floatformat:2 }}
+        </p>
+      </div>
+    </section>
+
+    <!-- Gráfico de Despesas por Categoria -->
+    {% if grafico_valores %}
+    <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="w-full sm:w-1/2 space-y-2">
+          <h3 class="text-sm font-bold text-slate-800">Distribuição de Gastos do Mês</h3>
+          <p class="text-xs text-slate-500">Visualização percentual de despesas por categoria na competência {{ mes_selecionado }}/{{ ano_selecionado }}.</p>
+        </div>
+        <div class="w-full sm:w-1/2 flex justify-center max-h-56">
+          <canvas id="graficoDespesas"></canvas>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Layout Grid: Formulário + Extrato -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Formulário de Lançamento -->
+      <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm no-print space-y-4">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h2 class="text-base font-bold text-slate-800">Novo Lançamento</h2>
+          {% if eh_gestor %}
+            <button type="button" onclick="document.getElementById('modal-gerir-categorias').classList.remove('hidden')" 
+                    class="text-[11px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200 transition shadow-sm">
+              ⚙️ Gerir Categorias
+            </button>
+          {% endif %}
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="space-y-3">
+          {% csrf_token %}
+          {% for field in form %}
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}
+                <span class="text-xs text-rose-500">{{ field.errors.0 }}</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition shadow">
+            Registrar Lançamento
+          </button>
+        </form>
+      </section>
+
+      <!-- Extrato Espelho Detalhado -->
+      <section class="lg:col-span-2 space-y-6">
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-base font-bold text-slate-800">Extrato de Movimentações</h2>
+            <span class="text-xs text-slate-500 font-medium">Competência: {{ mes_selecionado }}/{{ ano_selecionado }}</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-600 border-b">
+                <tr>
+                  <th class="py-2.5 px-3">Data</th>
+                  <th class="py-2.5 px-3">Descrição</th>
+                  <th class="py-2.5 px-3">Comprador</th>
+                  <th class="py-2.5 px-3 text-right">Valor</th>
+                  <th class="py-2.5 px-3 text-center no-print">NF</th>
+                  <th class="py-2.5 px-3 text-center no-print">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                {% for t in transacoes %}
+                <tr class="hover:bg-slate-50">
+                  <td class="py-2.5 px-3 whitespace-nowrap text-xs">{{ t.data|date:"d/m/Y" }}</td>
+                  <td class="py-2.5 px-3">
+                    <span class="font-medium text-slate-800 block">{{ t.descricao }}</span>
+                    <span class="text-[11px] text-slate-400">{{ t.categoria.nome|default:"Geral" }}</span>
+                  </td>
+                  <td class="py-2.5 px-3 font-medium text-slate-700 text-xs">{{ t.comprador }}</td>
+                  <td class="py-2.5 px-3 text-right font-bold {% if t.tipo == 'ENTRADA' %}text-emerald-600{% else %}text-rose-600{% endif %}">
+                    {% if t.tipo == 'ENTRADA' %}+{% else %}-{% endif %} R$ {{ t.valor|floatformat:2 }}
+                  </td>
+                  <td class="py-2.5 px-3 text-center no-print">
+                    {% if t.comprovante %}
+                      <a href="{{ t.comprovante.url }}" target="_blank" class="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold px-2 py-1 rounded">Ver NF</a>
+                    {% else %}
+                      <span class="text-xs text-slate-300">-</span>
+                    {% endif %}
+                  </td>
+                  <td class="py-2.5 px-3 text-center no-print">
+                    <div class="flex items-center justify-center gap-1.5">
+                      {% if eh_gestor or t.criado_por == request.user %}
+                        <!-- Botão Editar -->
+                        <a href="{% url 'editar_transacao' t.id %}" 
+                           class="text-xs text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-1.5 rounded-lg font-semibold transition"
+                           title="Editar Lançamento">
+                          ✏️
+                        </a>
+                        <!-- Botão Excluir -->
+                        <button type="button" 
+                                class="btn-trigger-exclusao text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1.5 rounded-lg font-semibold transition"
+                                data-url="{% url 'excluir_transacao' t.id %}"
+                                data-titulo="Excluir Lançamento"
+                                data-mensagem="Deseja realmente excluir o lançamento &quot;{{ t.descricao }}&quot; de R$ {{ t.valor }}?"
+                                title="Excluir Lançamento">
+                          ✕
+                        </button>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="6" class="py-8 text-center text-slate-400">Nenhum lançamento registrado neste mês.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Gastos por Comprador -->
+        {% if gastos_por_comprador %}
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
+          <h3 class="text-xs uppercase font-bold text-slate-500 mb-3 tracking-wider">Total de Gastos por Comprador</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {% for item in gastos_por_comprador %}
+              <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <span class="text-xs text-slate-500 block font-medium">{{ item.comprador }}</span>
+                <span class="text-lg font-bold text-slate-800">R$ {{ item.total|floatformat:2 }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+      </section>
+    </div>
+  </main>
+
+  <!-- MODAL DE GESTÃO DE MEMBROS -->
+  {% if eh_gestor %}
+  <div id="modal-membros" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-5">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-base font-bold text-slate-800">Membros da Família</h3>
+        <button type="button" onclick="document.getElementById('modal-membros').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+      </div>
+
+      <div class="space-y-3">
+        <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-xs text-indigo-900">
+          Código de Convite: <strong class="font-mono bg-white px-2 py-0.5 rounded border border-indigo-300">{{ familiar_atual.codigo_convite }}</strong>
+        </div>
+
+        <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+          {% for m in membros_aprovados %}
+          <div class="py-3 flex items-center justify-between gap-3">
+            <div>
+              <p class="text-xs font-bold text-slate-800">
+                {{ m.usuario.first_name|default:m.usuario.username }}
+                {% if m.usuario == request.user %}<span class="text-[10px] text-slate-400 font-normal">(você)</span>{% endif %}
+              </p>
+              <p class="text-[11px] text-slate-500">{{ m.usuario.email|default:"Sem e-mail" }}</p>
+              <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded {% if m.papel == 'GESTOR' %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-600{% endif %}">
+                {{ m.papel }}
+              </span>
+            </div>
+
+            {% if m.usuario != request.user %}
+            <div class="flex items-center gap-2">
+              {% if m.papel == 'MEMBRO' %}
+                <a href="{% url 'alterar_papel_membro' m.id 'GESTOR' %}" class="text-[11px] bg-slate-100 hover:bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-1 rounded-lg border border-slate-200 transition">
+                  Tornar Gestor
+                </a>
+              {% else %}
+                <a href="{% url 'alterar_papel_membro' m.id 'MEMBRO' %}" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-2.5 py-1 rounded-lg border border-slate-200 transition">
+                  Tornar Membro
+                </a>
+              {% endif %}
+
+              <button type="button" 
+                      class="btn-trigger-exclusao text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1.5 rounded-lg transition"
+                      data-url="{% url 'remover_membro' m.id %}"
+                      data-titulo="Revogar Acesso"
+                      data-mensagem="Deseja revogar o acesso de &quot;{{ m.usuario.first_name|default:m.usuario.username }}&quot; a este familiar?"
+                      title="Remover Membro">
+                🗑️
+              </button>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <button type="button" onclick="document.getElementById('modal-membros').classList.add('hidden')"
+              class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-semibold transition">
+        Fechar
+      </button>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- MODAL DE GESTÃO DE CATEGORIAS -->
+  {% if eh_gestor %}
+  <div id="modal-gerir-categorias" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-5">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-base font-bold text-slate-800">Gestão de Categorias da Família</h3>
+        <button type="button" onclick="document.getElementById('modal-gerir-categorias').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+      </div>
+
+      <form action="{% url 'criar_categoria' familiar_atual.id %}" method="post" class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+        {% csrf_token %}
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600">+ Criar Nova Categoria</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div class="sm:col-span-2">
+            <input type="text" name="nome" required placeholder="Ex: Farmácia, Fisioterapia"
+                   class="w-full border border-slate-300 rounded-lg p-2 bg-white text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+          </div>
+          <div>
+            <select name="tipo" class="w-full border border-slate-300 rounded-lg p-2 bg-white text-xs outline-none">
+              <option value="SAIDA">Saída</option>
+              <option value="ENTRADA">Entrada</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs transition shadow">
+          Adicionar Categoria
+        </button>
+      </form>
+
+      <div class="space-y-2">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600">Categorias Existentes</h4>
+        <div class="max-h-52 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+          {% for cat in categorias_do_familiar %}
+          <div class="p-2.5 flex justify-between items-center hover:bg-slate-50">
+            <div>
+              <span class="text-xs font-semibold text-slate-800">{{ cat.nome }}</span>
+              <span class="text-[10px] ml-2 px-1.5 py-0.5 rounded {% if cat.tipo == 'ENTRADA' %}bg-emerald-100 text-emerald-800{% else %}bg-rose-100 text-rose-800{% endif %} font-bold">
+                {{ cat.get_tipo_display }}
+              </span>
+            </div>
+            <button type="button" 
+                    class="btn-trigger-exclusao text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1.5 rounded-lg font-semibold transition"
+                    data-url="{% url 'excluir_categoria' cat.id %}"
+                    data-titulo="Excluir Categoria"
+                    data-mensagem="Deseja realmente remover a categoria &quot;{{ cat.nome }}&quot;?"
+                    title="Excluir Categoria">
+              ✕
+            </button>
+          </div>
+          {% empty %}
+          <p class="text-xs text-slate-400 p-4 text-center">Nenhuma categoria cadastrada ainda.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button type="button" onclick="document.getElementById('modal-gerir-categorias').classList.add('hidden')"
+                class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-semibold transition">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- MODAL MODERNO DE CONFIRMAÇÃO DE EXCLUSÃO -->
+  <div id="modal-confirmacao" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 text-center space-y-4 transform transition-all scale-100">
+      <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xl mx-auto">
+        🗑️
+      </div>
+      <div class="space-y-1">
+        <h3 id="modal-confirm-titulo" class="text-base font-bold text-slate-800">Confirmar Exclusão</h3>
+        <p id="modal-confirm-msg" class="text-xs text-slate-500 leading-relaxed">
+          Tem certeza que deseja excluir? Esta ação não poderá ser desfeita.
+        </p>
+      </div>
+      <div class="flex gap-2.5 pt-2">
+        <button type="button" onclick="fecharModalConfirmacao()" 
+                class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-semibold transition">
+          Cancelar
+        </button>
+        <a id="modal-confirm-btn" href="#" 
+           class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center">
+          Sim, Excluir
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- JSON Scripts Seguros do Django (Elimina 100% dos erros do analisador do VS Code) -->
+  {{ categorias_json|json_script:"categorias-data" }}
+  {{ grafico_labels|json_script:"grafico-labels-data" }}
+  {{ grafico_valores|json_script:"grafico-valores-data" }}
+
+  <script>
+    // 1. Notificações Dropdown
+    const btnNotificacao = document.getElementById('btn-notificacao');
+    const dropdownNotificacao = document.getElementById('dropdown-notificacao');
+    if (btnNotificacao && dropdownNotificacao) {
+      btnNotificacao.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownNotificacao.classList.toggle('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!dropdownNotificacao.contains(e.target) && !btnNotificacao.contains(e.target)) {
+          dropdownNotificacao.classList.add('hidden');
+        }
+      });
+    }
+
+    // 2. Filtro Dinâmico de Categorias
+    document.addEventListener('DOMContentLoaded', () => {
+      const selectTipo = document.getElementById('id_tipo_lancamento');
+      const selectCategoria = document.getElementById('id_categoria_select');
+      const categoriasDataEl = document.getElementById('categorias-data');
+
+      if (selectTipo && selectCategoria && categoriasDataEl) {
+        const categorias = JSON.parse(categoriasDataEl.textContent);
+
+        function atualizarCategoriasPorTipo() {
+          const tipoEscolhido = selectTipo.value;
+          const valorSelecionadoAnterior = selectCategoria.value;
+
+          selectCategoria.innerHTML = '<option value="">---------</option>';
+          const filtradas = categorias.filter(cat => cat.tipo === tipoEscolhido);
+
+          filtradas.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.id;
+            opt.textContent = cat.nome;
+            if (String(cat.id) === String(valorSelecionadoAnterior)) {
+              opt.selected = true;
+            }
+            selectCategoria.appendChild(opt);
+          });
+        }
+
+        atualizarCategoriasPorTipo();
+        selectTipo.addEventListener('change', atualizarCategoriasPorTipo);
+      }
+
+      // Auto-fechar Toasts após 3.5 segundos
+      const toasts = document.querySelectorAll('.toast-item');
+      toasts.forEach((toast) => {
+        setTimeout(() => fecharToast(toast), 3500);
+      });
+
+      // 3. Inicialização do Gráfico Chart.js via JSON limpo
+      const labelsEl = document.getElementById('grafico-labels-data');
+      const valoresEl = document.getElementById('grafico-valores-data');
+      const canvasEl = document.getElementById('graficoDespesas');
+
+      if (canvasEl && labelsEl && valoresEl) {
+        const labels = JSON.parse(labelsEl.textContent);
+        const valores = JSON.parse(valoresEl.textContent);
+
+        if (valores.length > 0) {
+          new Chart(canvasEl, {
+            type: 'doughnut',
+            data: {
+              labels: labels,
+              datasets: [{
+                data: valores,
+                backgroundColor: [
+                  '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6',
+                  '#8b5cf6', '#14b8a6', '#f43f5e', '#84cc16', '#06b6d4'
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff',
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'right',
+                  labels: {
+                    boxWidth: 12,
+                    font: { size: 11 }
+                  }
+                }
+              }
+            }
+          });
+        }
+      }
+    });
+
+    function fecharToast(el) {
+      if (!el) return;
+      el.classList.add('opacity-0', 'translate-x-full');
+      setTimeout(() => el.remove(), 400);
+    }
+
+    // 4. Modal de Confirmação com Delegação de Eventos
+    function abrirModalConfirmacao(url, titulo, mensagem) {
+      document.getElementById('modal-confirm-titulo').textContent = titulo;
+      document.getElementById('modal-confirm-msg').textContent = mensagem;
+      document.getElementById('modal-confirm-btn').setAttribute('href', url);
+      document.getElementById('modal-confirmacao').classList.remove('hidden');
+    }
+
+    function fecharModalConfirmacao() {
+      document.getElementById('modal-confirmacao').classList.add('hidden');
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-trigger-exclusao');
+      if (btn) {
+        const url = btn.getAttribute('data-url');
+        const titulo = btn.getAttribute('data-titulo');
+        const mensagem = btn.getAttribute('data-mensagem');
+        abrirModalConfirmacao(url, titulo, mensagem);
+      }
+    });
+
+    document.getElementById('modal-confirmacao')?.addEventListener('click', (e) => {
+      if (e.target === document.getElementById('modal-confirmacao')) {
+        fecharModalConfirmacao();
+      }
+    });
+  </script>
+</body>
+</html>

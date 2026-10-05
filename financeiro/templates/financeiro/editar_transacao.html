@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editar Lançamento - Gestão Familiar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans flex items-center justify-center p-4">
+  <div class="max-w-xl w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-6">
+    <div class="flex justify-between items-center border-b pb-4">
+      <div>
+        <h1 class="text-xl font-bold text-slate-800">Editar Lançamento</h1>
+        <p class="text-xs text-slate-500">Familiar: <strong class="text-indigo-600">{{ transacao.familiar.nome }}</strong></p>
+      </div>
+      <a href="{% url 'index' %}" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition font-semibold">
+        Voltar
+      </a>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-4">
+      {% csrf_token %}
+      {% for field in form %}
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}
+            <span class="text-xs text-rose-500">{{ field.errors.0 }}</span>
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      <div class="flex gap-3 pt-3 border-t">
+        <a href="{% url 'index' %}" class="flex-1 text-center bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-semibold transition">
+          Cancelar
+        </a>
+        <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-semibold transition shadow">
+          Salvar Alterações
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {{ categorias_json|json_script:"categorias-data" }}
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const selectTipo = document.getElementById('id_tipo_lancamento');
+      const selectCategoria = document.getElementById('id_categoria_select');
+      const categoriasDataEl = document.getElementById('categorias-data');
+
+      if (selectTipo && selectCategoria && categoriasDataEl) {
+        const categorias = JSON.parse(categoriasDataEl.textContent);
+        const valorInicial = "{{ transacao.categoria.id|default:'' }}";
+
+        function atualizarCategorias() {
+          const tipoEscolhido = selectTipo.value;
+          const atual = selectCategoria.value || valorInicial;
+
+          selectCategoria.innerHTML = '<option value="">---------</option>';
+          const filtradas = categorias.filter(c => c.tipo === tipoEscolhido);
+
+          filtradas.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.nome;
+            if (String(c.id) === String(atual)) {
+              opt.selected = true;
+            }
+            selectCategoria.appendChild(opt);
+          });
+        }
+
+        atualizarCategorias();
+        selectTipo.addEventListener('change', atualizarCategorias);
+      }
+    });
+  </script>
+</body>
+</html>
