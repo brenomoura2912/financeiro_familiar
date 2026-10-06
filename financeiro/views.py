@@ -238,9 +238,59 @@ def index(request):
     else:
         form = TransacaoForm(initial={'data': hoje}, familiar=familiar_atual)
 
-    transacoes = Transacao.objects.para_familiar(familiar_atual).filter(
+    # Base de transações do mês
+    base_transacoes = Transacao.objects.para_familiar(familiar_atual).filter(
         data__year=ano, data__month=mes
     ).select_related('categoria', 'criado_por')
+
+    # Opções para os dropdowns de filtro (baseadas no mês ativo)
+    compradores_disponiveis = base_transacoes.values_list('comprador', flat=True).distinct().order_by('comprador')
+    formas_pagamento_disponiveis = Transacao._meta.get_field('forma_pagamento').choices
+    # Captura de Parâmetros de Busca & Filtro
+    busca_texto = request.GET.get('q', '').strip()
+    filtro_tipo = request.GET.get('tipo', '').strip()
+    filtro_categoria = request.GET.get('categoria', '').strip()
+    filtro_comprador = request.GET.get('comprador', '').strip()
+    filtro_forma_pgto = request.GET.get('forma_pagamento', '').strip()
+
+    # Aplicação dos filtros encadeados
+    transacoes = base_transacoes
+    filtros_ativos = False
+
+    if busca_texto:
+        transacoes = transacoes.filter(
+            models.Q(descricao__icontains=busca_texto) | 
+            models.Q(observacoes__icontains=busca_texto)
+        )
+        filtros_ativos = True
+
+    if filtro_tipo in ['ENTRADA', 'SAIDA']:
+        transacoes = transacoes.filter(tipo=filtro_tipo)
+        filtros_ativos = True
+
+    if filtro_categoria:
+        transacoes = transacoes.filter(categoria_id=filtro_categoria)
+        filtros_ativos = True
+
+    if filtro_comprador:
+        transacoes = transacoes.filter(comprador=filtro_comprador)
+        filtros_ativos = True
+
+    if filtro_forma_pgto:
+        transacoes = transacoes.filter(forma_pagamento=filtro_forma_pgto)
+        filtros_ativos = True
+
+    # Totais recalculados de acordo com os filtros aplicados
+    total_entradas = transacoes.filter(tipo='ENTRADA').aggregate(total=Sum('valor'))['total'] or 0
+    total_saidas = transacoes.filter(tipo='SAIDA').aggregate(total=Sum('valor'))['total'] or 0
+    saldo = total_entradas - total_saidas
+
+    gastos_por_comprador = transacoes.filter(tipo='SAIDA').values('comprador').annotate(total=Sum('valor')).order_by('-total')
+
+    # Dados para o Gráfico de Rosca de Gastos
+    gastos_por_categoria_qs = transacoes.filter(tipo='SAIDA').values('categoria__nome').annotate(total=Sum('valor')).order_by('-total')
+    grafico_labels = [item['categoria__nome'] or 'Sem Categoria' for item in gastos_por_categoria_qs]
+    grafico_valores = [float(item['total']) for item in gastos_por_categoria_qs]
 
     categorias_qs = Categoria.objects.filter(
         models.Q(familiar__isnull=True) | models.Q(familiar=familiar_atual)
@@ -248,17 +298,6 @@ def index(request):
     categorias_json = [
         {'id': c.id, 'nome': c.nome, 'tipo': c.tipo} for c in categorias_qs
     ]
-
-    total_entradas = transacoes.filter(tipo='ENTRADA').aggregate(total=Sum('valor'))['total'] or 0
-    total_saidas = transacoes.filter(tipo='SAIDA').aggregate(total=Sum('valor'))['total'] or 0
-    saldo = total_entradas - total_saidas
-
-    gastos_por_comprador = transacoes.filter(tipo='SAIDA').values('comprador').annotate(total=Sum('valor')).order_by('-total')
-
-    # Dados para o Gráfico de Rosca de Gastos do Mês
-    gastos_por_categoria_qs = transacoes.filter(tipo='SAIDA').values('categoria__nome').annotate(total=Sum('valor')).order_by('-total')
-    grafico_labels = [item['categoria__nome'] or 'Sem Categoria' for item in gastos_por_categoria_qs]
-    grafico_valores = [float(item['total']) for item in gastos_por_categoria_qs]
 
     context = {
         'familiar_atual': familiar_atual,
@@ -269,7 +308,12 @@ def index(request):
         'total_solicitacoes': len(solicitacoes_pendentes),
         'form': form,
         'transacoes': transacoes,
+        'total_registros': transacoes.count(),
+        'total_registros_mes': base_transacoes.count(),
         'categorias_do_familiar': Categoria.objects.filter(familiar=familiar_atual).order_by('tipo', 'nome'),
+        'todas_categorias': categorias_qs,
+        'compradores_disponiveis': compradores_disponiveis,
+        'formas_pagamento_disponiveis': formas_pagamento_disponiveis,
         'categorias_json': categorias_json,
         'grafico_labels': grafico_labels,
         'grafico_valores': grafico_valores,
@@ -279,6 +323,13 @@ def index(request):
         'mes_selecionado': mes,
         'ano_selecionado': ano,
         'gastos_por_comprador': gastos_por_comprador,
+        # Estados dos Filtros
+        'busca_texto': busca_texto,
+        'filtro_tipo': filtro_tipo,
+        'filtro_categoria': filtro_categoria,
+        'filtro_comprador': filtro_comprador,
+        'filtro_forma_pgto': filtro_forma_pgto,
+        'filtros_ativos': filtros_ativos,
         'meses': [
             (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
             (5, 'Maio'), (6, 'Junho'), (7, 'Julho'), (8, 'Agosto'),
@@ -298,7 +349,6 @@ def editar_transacao(request, transacao_id):
     if not vinculo:
         return HttpResponseForbidden("Acesso negado.")
 
-    # Regra de Segurança: Gestor edita qualquer um; Membro só edita o próprio
     if vinculo.papel != 'GESTOR' and transacao.criado_por != request.user:
         return HttpResponseForbidden("Você só pode editar lançamentos criados por você.")
 
@@ -359,9 +409,30 @@ def exportar_csv(request, familiar_id):
         data__year=ano, data__month=mes
     ).select_related('categoria', 'criado_por')
 
+    # Se a exportação vier com filtros ativos, filtra a planilha também
+    busca_texto = request.GET.get('q', '').strip()
+    filtro_tipo = request.GET.get('tipo', '').strip()
+    filtro_categoria = request.GET.get('categoria', '').strip()
+    filtro_comprador = request.GET.get('comprador', '').strip()
+    filtro_forma_pgto = request.GET.get('forma_pagamento', '').strip()
+
+    if busca_texto:
+        transacoes = transacoes.filter(
+            models.Q(descricao__icontains=busca_texto) | 
+            models.Q(observacoes__icontains=busca_texto)
+        )
+    if filtro_tipo in ['ENTRADA', 'SAIDA']:
+        transacoes = transacoes.filter(tipo=filtro_tipo)
+    if filtro_categoria:
+        transacoes = transacoes.filter(categoria_id=filtro_categoria)
+    if filtro_comprador:
+        transacoes = transacoes.filter(comprador=filtro_comprador)
+    if filtro_forma_pgto:
+        transacoes = transacoes.filter(forma_pagamento=filtro_forma_pgto)
+
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="extrato_{familiar.nome.lower().replace(" ", "_")}_{mes}_{ano}.csv"'
-    response.write(u'\ufeff'.encode('utf8'))  # BOM UTF-8 para Excel abrir sem caracteres quebrados
+    response.write(u'\ufeff'.encode('utf8'))
 
     writer = csv.writer(response, delimiter=';')
     writer.writerow(['Data', 'Tipo', 'Descrição', 'Categoria', 'Valor (R$)', 'Comprador/Responsável', 'Forma Pagamento', 'Criado Por'])

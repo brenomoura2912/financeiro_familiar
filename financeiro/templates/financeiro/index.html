@@ -147,12 +147,12 @@
         </select>
         <input type="number" name="ano" value="{{ ano_selecionado }}" class="border rounded-lg px-3 py-1.5 w-24 bg-slate-50 text-sm font-medium">
         <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition">
-          Filtrar
+          Mudar Mês
         </button>
       </form>
 
       <div class="flex items-center gap-2">
-        <a href="{% url 'exportar_csv' familiar_atual.id %}?mes={{ mes_selecionado }}&ano={{ ano_selecionado }}" 
+        <a href="{% url 'exportar_csv' familiar_atual.id %}?mes={{ mes_selecionado }}&ano={{ ano_selecionado }}{% if busca_texto %}&q={{ busca_texto }}{% endif %}{% if filtro_tipo %}&tipo={{ filtro_tipo }}{% endif %}{% if filtro_categoria %}&categoria={{ filtro_categoria }}{% endif %}{% if filtro_comprador %}&comprador={{ filtro_comprador }}{% endif %}{% if filtro_forma_pgto %}&forma_pagamento={{ filtro_forma_pgto }}{% endif %}" 
            class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
           <span>📊</span> Exportar CSV (Excel)
         </a>
@@ -162,18 +162,18 @@
       </div>
     </header>
 
-    <!-- Cards de Saldo -->
+    <!-- Cards de Saldo Recalculados -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
-        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Total Entradas (Benefícios / Renda)</p>
+        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Total Entradas {% if filtros_ativos %}(Filtrado){% endif %}</p>
         <p class="text-2xl font-bold text-emerald-600 mt-1">R$ {{ total_entradas|floatformat:2 }}</p>
       </div>
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
-        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Total Saídas (Despesas do Mês)</p>
+        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Total Saídas {% if filtros_ativos %}(Filtrado){% endif %}</p>
         <p class="text-2xl font-bold text-rose-600 mt-1">R$ {{ total_saidas|floatformat:2 }}</p>
       </div>
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
-        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Saldo Restante do Período</p>
+        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Saldo Restante {% if filtros_ativos %}(Filtrado){% endif %}</p>
         <p class="text-2xl font-bold {% if saldo >= 0 %}text-indigo-600{% else %}text-rose-600{% endif %} mt-1">
           R$ {{ saldo|floatformat:2 }}
         </p>
@@ -205,7 +205,7 @@
           {% if eh_gestor %}
             <button type="button" onclick="document.getElementById('modal-gerir-categorias').classList.remove('hidden')" 
                     class="text-[11px] font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200 transition shadow-sm">
-              ⚙️ Gerir Categorias
+              ⚙️️ Gerir Categorias
             </button>
           {% endif %}
         </div>
@@ -227,14 +227,97 @@
         </form>
       </section>
 
-      <!-- Extrato Espelho Detalhado -->
+      <!-- Extrato Espelho Detalhado com Barra de Busca e Filtros -->
       <section class="lg:col-span-2 space-y-6">
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio">
-          <div class="flex justify-between items-center mb-3">
-            <h2 class="text-base font-bold text-slate-800">Extrato de Movimentações</h2>
-            <span class="text-xs text-slate-500 font-medium">Competência: {{ mes_selecionado }}/{{ ano_selecionado }}</span>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-relatorio space-y-4">
+          
+          <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-3">
+            <div>
+              <h2 class="text-base font-bold text-slate-800">Extrato de Movimentações</h2>
+              <p class="text-xs text-slate-500">
+                Competência: <strong>{{ mes_selecionado }}/{{ ano_selecionado }}</strong> 
+                • Mostrando <strong>{{ total_registros }}</strong> de {{ total_registros_mes }} lançamento{{ total_registros_mes|pluralize:"s" }}
+              </p>
+            </div>
+            
+            {% if filtros_ativos %}
+              <a href="?mes={{ mes_selecionado }}&ano={{ ano_selecionado }}" 
+                 class="text-xs bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-semibold px-2.5 py-1 rounded-lg transition flex items-center gap-1 no-print">
+                <span>✕</span> Limpar Filtros
+              </a>
+            {% endif %}
           </div>
 
+          <!-- BARRA DE BUSCA E FILTROS DINÂMICOS -->
+          <form method="get" class="no-print bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+            <input type="hidden" name="mes" value="{{ mes_selecionado }}">
+            <input type="hidden" name="ano" value="{{ ano_selecionado }}">
+
+            <div class="flex flex-wrap sm:flex-nowrap gap-2">
+              <div class="relative flex-1">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm">🔍</span>
+                <input type="text" name="q" value="{{ busca_texto }}" placeholder="Buscar por descrição (ex: Fralda, Farmácia, Consulta)..."
+                       class="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+              </div>
+
+              <button type="button" onclick="document.getElementById('painel-filtros-avancados').classList.toggle('hidden')"
+                      class="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 px-3 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shrink-0">
+                <span>⚙️</span> <span>Filtros</span> <span class="text-[10px]">▼</span>
+              </button>
+
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition shadow-sm shrink-0">
+                Filtrar
+              </button>
+            </div>
+
+            <!-- Painel Retrátil de Filtros Adicionais -->
+            <div id="painel-filtros-avancados" class="{% if not filtro_tipo and not filtro_categoria and not filtro_comprador and not filtro_forma_pgto %}hidden{% endif %} pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+              
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Tipo:</label>
+                <select name="tipo" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-xs outline-none">
+                  <option value="">Todos</option>
+                  <option value="SAIDA" {% if filtro_tipo == 'SAIDA' %}selected{% endif %}>Saída (Despesa)</option>
+                  <option value="ENTRADA" {% if filtro_tipo == 'ENTRADA' %}selected{% endif %}>Entrada (Receita)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Categoria:</label>
+                <select name="categoria" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-xs outline-none">
+                  <option value="">Todas</option>
+                  {% for cat in todas_categorias %}
+                    <option value="{{ cat.id }}" {% if filtro_categoria == cat.id|stringformat:"s" %}selected{% endif %}>
+                      {{ cat.nome }} ({{ cat.get_tipo_display }})
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Comprador:</label>
+                <select name="comprador" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-xs outline-none">
+                  <option value="">Todos</option>
+                  {% for comp in compradores_disponiveis %}
+                    <option value="{{ comp }}" {% if filtro_comprador == comp %}selected{% endif %}>{{ comp }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Forma Pgto:</label>
+                <select name="forma_pagamento" class="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-xs outline-none">
+                  <option value="">Todas</option>
+                  {% for val, nome in formas_pagamento_disponiveis %}
+                    <option value="{{ val }}" {% if filtro_forma_pgto == val %}selected{% endif %}>{{ nome }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+            </div>
+          </form>
+
+          <!-- Tabela de Lançamentos -->
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
               <thead class="bg-slate-50 text-slate-600 border-b">
@@ -253,7 +336,7 @@
                   <td class="py-2.5 px-3 whitespace-nowrap text-xs">{{ t.data|date:"d/m/Y" }}</td>
                   <td class="py-2.5 px-3">
                     <span class="font-medium text-slate-800 block">{{ t.descricao }}</span>
-                    <span class="text-[11px] text-slate-400">{{ t.categoria.nome|default:"Geral" }}</span>
+                    <span class="text-[11px] text-slate-400">{{ t.categoria.nome|default:"Geral" }} • {{ t.get_forma_pagamento_display }}</span>
                   </td>
                   <td class="py-2.5 px-3 font-medium text-slate-700 text-xs">{{ t.comprador }}</td>
                   <td class="py-2.5 px-3 text-right font-bold {% if t.tipo == 'ENTRADA' %}text-emerald-600{% else %}text-rose-600{% endif %}">
@@ -269,13 +352,11 @@
                   <td class="py-2.5 px-3 text-center no-print">
                     <div class="flex items-center justify-center gap-1.5">
                       {% if eh_gestor or t.criado_por == request.user %}
-                        <!-- Botão Editar -->
                         <a href="{% url 'editar_transacao' t.id %}" 
                            class="text-xs text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-1.5 rounded-lg font-semibold transition"
                            title="Editar Lançamento">
-                          ✏️
+                          ✏️️
                         </a>
-                        <!-- Botão Excluir -->
                         <button type="button" 
                                 class="btn-trigger-exclusao text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1.5 rounded-lg font-semibold transition"
                                 data-url="{% url 'excluir_transacao' t.id %}"
@@ -290,7 +371,13 @@
                 </tr>
                 {% empty %}
                 <tr>
-                  <td colspan="6" class="py-8 text-center text-slate-400">Nenhum lançamento registrado neste mês.</td>
+                  <td colspan="6" class="py-8 text-center text-slate-400">
+                    {% if filtros_ativos %}
+                      Nenhum lançamento encontrado para os filtros selecionados.
+                    {% else %}
+                      Nenhum lançamento registrado neste mês.
+                    {% endif %}
+                  </td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -470,7 +557,7 @@
     </div>
   </div>
 
-  <!-- JSON Scripts Seguros do Django (Elimina 100% dos erros do analisador do VS Code) -->
+  <!-- JSON Scripts Seguros do Django -->
   {{ categorias_json|json_script:"categorias-data" }}
   {{ grafico_labels|json_script:"grafico-labels-data" }}
   {{ grafico_valores|json_script:"grafico-valores-data" }}
@@ -491,7 +578,7 @@
       });
     }
 
-    // 2. Filtro Dinâmico de Categorias
+    // 2. Filtro Dinâmico de Categorias no formulário
     document.addEventListener('DOMContentLoaded', () => {
       const selectTipo = document.getElementById('id_tipo_lancamento');
       const selectCategoria = document.getElementById('id_categoria_select');
@@ -528,7 +615,7 @@
         setTimeout(() => fecharToast(toast), 3500);
       });
 
-      // 3. Inicialização do Gráfico Chart.js via JSON limpo
+      // 3. Inicialização do Gráfico Chart.js
       const labelsEl = document.getElementById('grafico-labels-data');
       const valoresEl = document.getElementById('grafico-valores-data');
       const canvasEl = document.getElementById('graficoDespesas');
