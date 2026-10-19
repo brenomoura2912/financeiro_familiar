@@ -3,47 +3,124 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Entrar - Controle do Idoso</title>
+  <title>Entrar - Gestão Financeira Familiar</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
-  <div class="max-w-md w-full bg-white rounded-2xl shadow-lg border border-slate-200 p-8 space-y-6">
-    <div class="text-center space-y-1">
-      <div class="text-4xl">🛡️</div>
-      <h1 class="text-2xl font-bold text-slate-800">Controle Financeiro Familiar</h1>
-      <p class="text-sm text-slate-500">Gestão financeira familiar com transparência</p>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-200">
+
+  <!-- Container de Notificações / Mensagens -->
+  {% if messages %}
+    <div class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full">
+      {% for message in messages %}
+        <div class="flex items-center justify-between p-3.5 rounded-xl shadow-lg border backdrop-blur-md {% if message.tags == 'error' %}bg-rose-50/95 dark:bg-rose-950/90 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200{% else %}bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200{% endif %}">
+          <span class="text-xs font-semibold">{{ message }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Card de Login -->
+  <div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 p-8 space-y-6">
+    <div class="text-center space-y-2">
+      <div class="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+        🛡️
+      </div>
+      <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Controle Financeiro Familiar</h1>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Gestão financeira familiar com transparência e auditoria</p>
     </div>
 
     <form method="post" class="space-y-4">
       {% csrf_token %}
-      {% if form.errors %}
-        <div class="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
-          Usuário ou senha inválidos. Por favor, tente novamente.
-        </div>
-      {% endif %}
-
+      
       <div>
-        <label class="block text-xs font-semibold text-slate-600 mb-1">Usuário</label>
-        <input type="text" name="username" required autofocus
-               class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+        <label for="id_username" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+          E-mail ou Utilizador:
+        </label>
+        <input type="text" 
+               name="username" 
+               id="id_username" 
+               required 
+               autocomplete="username"
+               placeholder="exemplo@gmail.com ou utilizador" 
+               class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-slate-600 mb-1">Senha</label>
-        <input type="password" name="password" required
-               class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+        <label for="id_password" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+          Senha:
+        </label>
+        <input type="password" 
+               name="password" 
+               id="id_password" 
+               required 
+               autocomplete="current-password"
+               placeholder="••••••••" 
+               class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
       </div>
 
-      <button type="submit"
-              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm shadow transition">
+      <button type="submit" 
+              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md shadow-indigo-600/20 active:scale-[0.98]">
         Entrar na Plataforma
       </button>
     </form>
 
-    <div class="text-center text-xs text-slate-500 border-t pt-4">
-      Ainda não tem conta? 
-      <a href="{% url 'cadastro' %}" class="text-indigo-600 font-semibold hover:underline">Cadastre-se</a>
+    <div class="text-center pt-2 border-t border-slate-100 dark:border-slate-700/70">
+      <p class="text-xs text-slate-500 dark:text-slate-400">
+        Ainda não tem conta? 
+        <a href="{% url 'cadastro' %}" class="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+          Registre-se
+        </a>
+      </p>
     </div>
   </div>
+
+  <!-- Botão de Alternar Tema (Centralizado e Discreto) -->
+  <div class="mt-6">
+    <button type="button" 
+            onclick="alternarTema()" 
+            class="flex items-center gap-2 px-3.5 py-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+      <span id="icone-tema">🌙</span>
+      <span id="texto-tema">Modo Escuro</span>
+    </button>
+  </div>
+
+  <script>
+    function atualizarTemaUI() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const icone = document.getElementById('icone-tema');
+      const texto = document.getElementById('texto-tema');
+      if (icone && texto) {
+        if (isDark) {
+          icone.textContent = '☀️';
+          texto.textContent = 'Modo Claro';
+        } else {
+          icone.textContent = '🌙';
+          texto.textContent = 'Modo Escuro';
+        }
+      }
+    }
+
+    function alternarTema() {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      }
+      atualizarTemaUI();
+    }
+    atualizarTemaUI();
+  </script>
 </body>
 </html>

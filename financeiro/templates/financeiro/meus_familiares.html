@@ -3,99 +3,454 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meus Familiares - Gestão Familiar</title>
+  <title>Meus Familiares - Gestão Financeira Familiar</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800 font-sans">
-  
-  <nav class="bg-indigo-900 text-white p-4 shadow-md">
-    <div class="max-w-5xl mx-auto flex justify-between items-center">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">🛡️</span>
-        <h1 class="text-lg font-bold">Gestão Familiar</h1>
-      </div>
-      <div class="flex items-center gap-4 text-xs">
-        <span>Olá, <strong>{{ request.user.first_name|default:request.user.username }}</strong></span>
-        <a href="{% url 'logout' %}" class="bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg transition">Sair</a>
-      </div>
-    </div>
-  </nav>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen transition-colors duration-200">
 
-  <main class="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
-    <div>
-      <h2 class="text-2xl font-bold text-slate-800">Meus Familiares</h2>
-      <p class="text-sm text-slate-500">Selecione o familiar que deseja gerenciar ou auditar agora:</p>
-    </div>
-
-    <!-- Lista de Familiares Vinculados -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-      {% for v in vinculos %}
-      <a href="{% url 'selecionar_familiar' v.familiar.id %}" 
-         class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-500 transition group flex flex-col justify-between space-y-4">
-        <div>
-          <div class="flex items-center justify-between">
-            <span class="text-3xl">🏡</span>
-            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full {% if v.papel == 'GESTOR' %}bg-emerald-100 text-emerald-800{% else %}bg-slate-100 text-slate-600{% endif %}">
-              {{ v.papel }}
-            </span>
+  <!-- Container de Toasts no Canto Superior Direito -->
+  <div class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+    
+    <!-- Mensagens Django -->
+    {% if messages %}
+      {% for message in messages %}
+        <div class="toast-item pointer-events-auto flex items-center justify-between p-3.5 rounded-2xl shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-x-0 opacity-100 {% if message.tags == 'error' %}bg-rose-50/95 dark:bg-rose-950/90 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200{% elif message.tags == 'info' %}bg-blue-50/95 dark:bg-blue-950/90 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200{% else %}bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200{% endif %}">
+          <div class="flex items-center gap-2.5 text-xs font-semibold">
+            <span class="text-base">{% if message.tags == 'error' %}⚠️{% elif message.tags == 'info' %}ℹ️{% else %}✅{% endif %}</span>
+            <span>{{ message }}</span>
           </div>
-          <h3 class="text-lg font-bold text-slate-800 group-hover:text-indigo-600 transition mt-2">{{ v.familiar.nome }}</h3>
-          {% if v.papel == 'GESTOR' %}
-            <p class="text-xs text-slate-400 font-mono mt-1">Código Família: {{ v.familiar.codigo_convite }}</p>
-          {% endif %}
+          <button type="button" onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs ml-3 font-bold transition">✕</button>
         </div>
-        <span class="text-xs font-semibold text-indigo-600 flex items-center gap-1">
-          Abrir finanças →
-        </span>
-      </a>
       {% endfor %}
-    </div>
+    {% endif %}
 
-    <!-- Adicionar mais familiares -->
-    <div class="border-t pt-8">
-      <h3 class="text-base font-bold text-slate-700 mb-4">Adicionar mais familiares</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Cadastrar Novo Familiar -->
-        <div class="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
-          <h4 class="font-bold text-sm text-slate-800 flex items-center gap-2">
-            <span>➕</span> Cadastrar Outro Familiar
-          </h4>
-          <form method="post" class="space-y-3">
-            {% csrf_token %}
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Nome do Familiar</label>
-              {{ form_familiar.nome }}
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Data de Nascimento (opcional)</label>
-              {{ form_familiar.data_nascimento }}
-            </div>
-            <button type="submit" name="criar_familiar" 
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs transition shadow">
-              Cadastrar e Gerenciar
-            </button>
-          </form>
+    <!-- Toast de Cópia Elegante à Direita -->
+    <div id="toast-copiado" class="pointer-events-auto hidden transform translate-x-full opacity-0 transition-all duration-300 flex items-center justify-between gap-3 p-3.5 bg-white/95 dark:bg-slate-800/95 text-slate-800 dark:text-slate-100 rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-700/90 backdrop-blur-md">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
         </div>
-
-        <!-- Entrar com Código -->
-        <div class="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
-          <h4 class="font-bold text-sm text-slate-800 flex items-center gap-2">
-            <span>🔑</span> Entrar com Código de Convite
-          </h4>
-          <form method="post" class="space-y-3">
-            {% csrf_token %}
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Código de Convite</label>
-              {{ form_entrar.codigo_convite }}
-            </div>
-            <button type="submit" name="entrar_familia" 
-                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-xs transition shadow">
-              Solicitar Entrada na Família
-            </button>
-          </form>
+        <div>
+          <p class="text-xs font-bold leading-tight">Código Copiado!</p>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">Pronto para colar e compartilhar.</p>
         </div>
       </div>
+      <button type="button" onclick="fecharToastCopiado()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xs p-1 font-bold transition">✕</button>
     </div>
+
+  </div>
+
+  <!-- Navbar Superior em Linha Única com Menu de Perfil Integrado -->
+  <header class="bg-indigo-900 dark:bg-slate-950 text-white px-4 sm:px-6 h-14 shadow-md border-b border-indigo-950 dark:border-slate-800 flex items-center">
+    <div class="max-w-5xl w-full mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">👨‍👩‍👧‍👦</span>
+        <span class="text-sm sm:text-base font-bold tracking-tight truncate">Gestão Financeira</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Notificações -->
+        <div class="relative">
+          <button id="btn-notificacao-mf" type="button" 
+                  title="Ver Notificações"
+                  class="relative w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-800/80 dark:bg-slate-800 hover:bg-indigo-700 dark:hover:bg-slate-700 text-white border border-indigo-700/60 dark:border-slate-700 text-xs transition active:scale-95">
+            🔔
+            {% if total_solicitacoes_pendentes > 0 %}
+              <span class="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center animate-pulse">
+                {{ total_solicitacoes_pendentes }}
+              </span>
+            {% endif %}
+          </button>
+
+          <div id="dropdown-notificacao-mf" class="hidden absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-xs sm:w-80 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700/80 z-50 p-4 space-y-3 backdrop-blur-md">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/80 pb-2.5 whitespace-nowrap">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Notificações</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {% if total_solicitacoes_pendentes > 0 %}bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900{% else %}bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400{% endif %}">
+                  {{ total_solicitacoes_pendentes }}
+                </span>
+              </div>
+              <span class="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Solicitações</span>
+            </div>
+
+            {% if solicitacoes_pendentes %}
+              <div class="divide-y divide-slate-100 dark:divide-slate-700/70 max-h-60 overflow-y-auto pr-1 space-y-1">
+                {% for s in solicitacoes_pendentes %}
+                  <div class="py-2.5 space-y-2 first:pt-1">
+                    <div>
+                      <p class="text-xs font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                        {{ s.usuario.first_name|default:s.usuario.username }}
+                      </p>
+                      <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                        Familiar: <strong>{{ s.familiar.nome }}</strong>
+                      </p>
+                    </div>
+                    <div class="flex gap-2">
+                      <a href="{% url 'responder_solicitacao' s.id 'aprovar' %}" class="flex-1 text-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 rounded-lg transition shadow-sm active:scale-95">Aprovar</a>
+                      <a href="{% url 'responder_solicitacao' s.id 'recusar' %}" class="flex-1 text-center bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold py-1.5 rounded-lg transition shadow-sm active:scale-95">Recusar</a>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="py-5 text-center space-y-1">
+                <span class="text-2xl block">🔕</span>
+                <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">Tudo em dia!</p>
+                <p class="text-[11px] text-slate-400 dark:text-slate-500">Nenhuma solicitação pendente.</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Alternador de Tema -->
+        <button type="button" 
+                onclick="alternarTema()" 
+                title="Alternar Tema Claro/Escuro"
+                class="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-800/80 dark:bg-slate-800 hover:bg-indigo-700 dark:hover:bg-slate-700 text-indigo-200 dark:text-slate-300 border border-indigo-700/60 dark:border-slate-700 text-xs transition active:scale-95">
+          <span id="icone-sol" class="hidden">☀️</span>
+          <span id="icone-lua" class="hidden">🌙</span>
+        </button>
+
+        <!-- Menu de Perfil / Avatar Circular Interativo -->
+        <div class="relative dropdown-container">
+          <button id="btn-perfil" type="button" 
+                  title="Conta de utilizador"
+                  class="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-indigo-700 dark:bg-slate-800 text-white font-bold text-xs border border-indigo-400/40 dark:border-slate-700 shadow-sm transition hover:ring-2 hover:ring-indigo-400 active:scale-95">
+            {% if request.user.perfil.foto %}
+              <img src="{{ request.user.perfil.foto.url }}" alt="{{ request.user.username }}" class="w-full h-full object-cover">
+            {% else %}
+              <span>{{ request.user.perfil.iniciais }}</span>
+            {% endif %}
+          </button>
+
+          <!-- Dropdown Flutuante de Perfil -->
+          <div id="dropdown-perfil" class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 p-3 space-y-2 backdrop-blur-md text-xs">
+            
+            <div class="px-2 py-1.5 border-b border-slate-100 dark:border-slate-700/80">
+              <p class="font-bold text-slate-800 dark:text-slate-100 truncate text-xs">{{ request.user.get_full_name|default:request.user.username }}</p>
+              <p class="text-[11px] text-slate-400 truncate">{{ request.user.email|default:"Sem e-mail" }}</p>
+            </div>
+
+            <div class="space-y-0.5">
+              <a href="{% url 'perfil' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-medium transition">
+                <span>👤</span>
+                <span>Editar Perfil</span>
+              </a>
+
+              <a href="{% url 'logout' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium transition">
+                <span>🚪</span>
+                <span>Encerrar Sessão</span>
+              </a>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 sm:p-6 space-y-8">
+
+    <!-- Seção de Familiares Cadastrados -->
+    <section class="space-y-4">
+      <div class="border-b dark:border-slate-700 pb-2">
+        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Familiares em Acompanhamento</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Selecione o perfil desejado para acessar receitas, despesas e extratos.</p>
+      </div>
+
+      {% if vinculos %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {% for v in vinculos %}
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition relative">
+              
+              <!-- Topo do Card -->
+              <div class="space-y-3">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-center gap-2 truncate">
+                    <h3 class="text-base font-bold text-slate-800 dark:text-slate-100 leading-snug truncate">
+                      {{ v.familiar.nome }}
+                    </h3>
+                    <span class="text-[9px] uppercase font-extrabold px-2 py-0.5 rounded-full shrink-0 {% if v.papel == 'GESTOR' %}bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800{% else %}bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800{% endif %}">
+                      {{ v.papel }}
+                    </span>
+                  </div>
+
+                  <!-- Menu de Contexto (Três Pontinhos) -->
+                  <div class="relative dropdown-container shrink-0">
+                    <button type="button" 
+                            onclick="toggleMenuCard(event, 'menu-card-{{ v.familiar.id }}')"
+                            title="Opções de Governança"
+                            class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition">
+                      <span class="text-base font-bold leading-none select-none">⋮</span>
+                    </button>
+
+                    <!-- Menu Popover -->
+                    <div id="menu-card-{{ v.familiar.id }}" 
+                         class="menu-card-dropdown hidden absolute right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-30 text-xs">
+                      
+                      {% if v.papel == 'GESTOR' %}
+                        <!-- Alternar Arquivamento -->
+                        <a href="{% url 'alternar_arquivamento_familiar' v.familiar.id %}" 
+                           class="flex items-center gap-2 px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+                          <span>{% if v.familiar.ativo %}📁{% else %}🔓{% endif %}</span>
+                          <span>{% if v.familiar.ativo %}Arquivar Familiar{% else %}Reativar Familiar{% endif %}</span>
+                        </a>
+
+                        <div class="border-t border-slate-100 dark:border-slate-700 my-1"></div>
+
+                        <!-- Excluir Permanentemente -->
+                        <button type="button" 
+                                class="btn-trigger-exclusao w-full text-left flex items-center gap-2 px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                data-url="{% url 'excluir_familiar_definitivo' v.familiar.id %}"
+                                data-titulo="Excluir Familiar"
+                                data-mensagem="Tem certeza que deseja apagar &quot;{{ v.familiar.nome }}&quot;? Todos os lançamentos, anexos e categorias deste perfil serão removidos permanentemente.">
+                          <span>🗑️</span>
+                          <span>Excluir Definitivo</span>
+                        </button>
+                      {% else %}
+                        <a href="{% url 'sair_da_familia' v.familiar.id %}" 
+                           onclick="return confirm('Deseja realmente sair do acompanhamento deste familiar?')"
+                           class="flex items-center gap-2 px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+                          <span>🚪</span>
+                          <span>Sair da Família</span>
+                        </a>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <span>Status:</span>
+                  <span class="font-semibold {% if v.familiar.ativo %}text-emerald-600 dark:text-emerald-400{% else %}text-amber-500{% endif %}">
+                    {% if v.familiar.ativo %}Ativo{% else %}Arquivado (Somente Leitura){% endif %}
+                  </span>
+                </div>
+
+                {% if v.papel == 'GESTOR' and v.familiar.ativo %}
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                    <span class="text-xs font-medium">Código:</span>
+                    <div class="flex items-center gap-2 font-mono">
+                      <strong class="text-indigo-600 dark:text-indigo-400 font-bold select-all tracking-wider text-xs sm:text-sm">{{ v.familiar.codigo_convite }}</strong>
+                      
+                      <button type="button"
+                              onclick="copiarTexto('{{ v.familiar.codigo_convite }}', this)"
+                              title="Copiar Código de Convite"
+                              class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition active:scale-95">
+                        <svg class="w-4 h-4 icone-copiar" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <svg class="w-4 h-4 text-emerald-500 icone-check hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                {% endif %}
+              </div>
+
+              <!-- Rodapé Limpo: Somente a Ação Principal -->
+              <div class="pt-4 mt-3 border-t border-slate-100 dark:border-slate-700/80">
+                <a href="{% url 'selecionar_familiar' v.familiar.id %}" 
+                   class="w-full block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-3 rounded-xl text-xs text-center transition shadow-sm active:scale-[0.99]">
+                  Acessar Gestão →
+                </a>
+              </div>
+
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 text-center text-slate-400 dark:text-slate-500 text-xs">
+          Nenhum familiar cadastrado no momento. Utilize as opções abaixo para iniciar.
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- Formulários de Adição/Entrada -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4">
+      <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+        <div>
+          <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Cadastrar Novo Familiar</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Você será o Gestor com controle total sobre este acompanhamento.</p>
+        </div>
+
+        <form method="post" class="space-y-3">
+          {% csrf_token %}
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nome Completo do Familiar:</label>
+            {{ form_familiar.nome }}
+          </div>
+          <button type="submit" name="criar_familiar" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-sm">
+            Cadastrar e Tornar-se Gestor
+          </button>
+        </form>
+      </div>
+
+      <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+        <div>
+          <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Entrar em uma Família Existente</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Insira o código compartilhado pelo gestor responsável.</p>
+        </div>
+
+        <form method="post" class="space-y-3">
+          {% csrf_token %}
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Código de Convite:</label>
+            {{ form_entrar.codigo_convite }}
+          </div>
+          <button type="submit" name="entrar_familia" class="w-full bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-sm">
+            Solicitar Acesso de Membro
+          </button>
+        </form>
+      </div>
+    </section>
+
   </main>
+
+  <!-- Modal de Confirmação para Exclusão de Familiar -->
+  <div id="modal-confirmacao" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-sm w-full p-6 text-center space-y-4 text-slate-800 dark:text-slate-100">
+      <div class="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-300 flex items-center justify-center text-xl mx-auto">⚠️</div>
+      <div class="space-y-1">
+        <h3 id="modal-confirm-titulo" class="text-base font-bold">Confirmação</h3>
+        <p id="modal-confirm-msg" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed"></p>
+      </div>
+      <div class="flex gap-2.5 pt-2">
+        <button type="button" onclick="fecharModalConfirmacao()" class="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition">Cancelar</button>
+        <a id="modal-confirm-btn" href="#" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl text-xs font-semibold transition shadow-sm flex items-center justify-center">Excluir Tudo</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function atualizarIconeTema() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const sol = document.getElementById('icone-sol');
+      const lua = document.getElementById('icone-lua');
+      if (sol && lua) {
+        if (isDark) { sol.classList.remove('hidden'); lua.classList.add('hidden'); }
+        else { sol.classList.add('hidden'); lua.classList.remove('hidden'); }
+      }
+    }
+
+    function alternarTema() {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      }
+      atualizarIconeTema();
+    }
+    atualizarIconeTema();
+
+    document.querySelectorAll('.toast-item').forEach(t => setTimeout(() => t.remove(), 4000));
+
+    // Dropdown de Perfil
+    const btnPerfil = document.getElementById('btn-perfil');
+    const dropdownPerfil = document.getElementById('dropdown-perfil');
+    if (btnPerfil && dropdownPerfil) {
+      btnPerfil.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownPerfil.classList.toggle('hidden');
+        document.getElementById('dropdown-notificacao-mf')?.classList.add('hidden');
+      });
+    }
+
+    // Controle do Sino de Notificações
+    const btnNotifMF = document.getElementById('btn-notificacao-mf');
+    const dropdownNotifMF = document.getElementById('dropdown-notificacao-mf');
+    if (btnNotifMF && dropdownNotifMF) {
+      btnNotifMF.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownNotifMF.classList.toggle('hidden');
+        dropdownPerfil?.classList.add('hidden');
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#btn-perfil') && !e.target.closest('#dropdown-perfil')) {
+        dropdownPerfil?.classList.add('hidden');
+      }
+      if (!e.target.closest('#btn-notificacao-mf') && !e.target.closest('#dropdown-notificacao-mf')) {
+        dropdownNotifMF?.classList.add('hidden');
+      }
+      if (!e.target.closest('.dropdown-container')) {
+        document.querySelectorAll('.menu-card-dropdown').forEach(m => m.classList.add('hidden'));
+      }
+    });
+
+    // Toast de Cópia
+    let toastTimeout;
+    function dispararToastDireita() {
+      const toastEl = document.getElementById('toast-copiado');
+      if (!toastEl) return;
+      clearTimeout(toastTimeout);
+      toastEl.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        toastEl.classList.remove('translate-x-full', 'opacity-0');
+        toastEl.classList.add('translate-x-0', 'opacity-100');
+      });
+      toastTimeout = setTimeout(() => { fecharToastCopiado(); }, 2600);
+    }
+    function fecharToastCopiado() {
+      const toastEl = document.getElementById('toast-copiado');
+      if (!toastEl) return;
+      toastEl.classList.remove('translate-x-0', 'opacity-100');
+      toastEl.classList.add('translate-x-full', 'opacity-0');
+      setTimeout(() => { toastEl.classList.add('hidden'); }, 300);
+    }
+
+    function copiarTexto(texto, btnElement) {
+      navigator.clipboard.writeText(texto).then(() => {
+        const iconCopiar = btnElement.querySelector('.icone-copiar');
+        const iconCheck = btnElement.querySelector('.icone-check');
+        if (iconCopiar && iconCheck) {
+          iconCopiar.classList.add('hidden');
+          iconCheck.classList.remove('hidden');
+          setTimeout(() => { iconCheck.classList.add('hidden'); iconCopiar.classList.remove('hidden'); }, 2000);
+        }
+        dispararToastDireita();
+      });
+    }
+
+    function toggleMenuCard(e, menuId) {
+      e.stopPropagation();
+      const menu = document.getElementById(menuId);
+      document.querySelectorAll('.menu-card-dropdown').forEach(m => { if (m !== menu) m.classList.add('hidden'); });
+      menu.classList.toggle('hidden');
+    }
+
+    function abrirModalConfirmacao(url, titulo, mensagem) {
+      document.getElementById('modal-confirm-titulo').textContent = titulo;
+      document.getElementById('modal-confirm-msg').textContent = mensagem;
+      document.getElementById('modal-confirm-btn').setAttribute('href', url);
+      document.getElementById('modal-confirmacao').classList.remove('hidden');
+      document.querySelectorAll('.menu-card-dropdown').forEach(m => m.classList.add('hidden'));
+    }
+    function fecharModalConfirmacao() { document.getElementById('modal-confirmacao').classList.add('hidden'); }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-trigger-exclusao');
+      if (btn) abrirModalConfirmacao(btn.getAttribute('data-url'), btn.getAttribute('data-titulo'), btn.getAttribute('data-mensagem'));
+    });
+    document.getElementById('modal-confirmacao')?.addEventListener('click', (e) => {
+      if (e.target === document.getElementById('modal-confirmacao')) fecharModalConfirmacao();
+    });
+  </script>
 </body>
 </html>

@@ -5,20 +5,82 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aguardando Aprovação - Gestão Familiar</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
-  <div class="max-w-md w-full bg-white rounded-2xl shadow-lg border border-slate-200 p-8 text-center space-y-4">
-    <div class="text-5xl animate-bounce">⏳</div>
-    <h1 class="text-xl font-bold text-slate-800">Solicitação Enviada!</h1>
-    <p class="text-sm text-slate-600 leading-relaxed">
-      Seu pedido para acessar as contas de <span class="font-bold text-slate-800">{{ vinculo.familiar.nome }}</span> foi registrado com sucesso.
-    </p>
-    <div class="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs">
-      O Gestor da família precisa aprovar sua entrada. Assim que ele autorizar, você terá acesso imediato aos extratos e lançamentos.
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex items-center justify-center p-4 transition-colors duration-200">
+
+  <!-- Botão Flutuante Dark/Light Mode -->
+  <button type="button" 
+          onclick="alternarTema()" 
+          title="Alternar Tema Claro/Escuro"
+          class="fixed top-4 right-4 p-2.5 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm transition">
+    <span id="icone-sol" class="hidden text-sm">☀️</span>
+    <span id="icone-lua" class="hidden text-sm">🌙</span>
+  </button>
+
+  <div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200 dark:border-slate-700 text-center space-y-5">
+    <div class="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center text-3xl mx-auto shadow-inner">
+      ⏳
     </div>
-    <div class="pt-2">
-      <a href="{% url 'logout' %}" class="text-xs text-indigo-600 font-semibold hover:underline">Sair por enquanto</a>
+
+    <div class="space-y-2">
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Solicitação Enviada!</h1>
+      <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+        O seu pedido para ingressar no perfil familiar de 
+        <strong class="text-slate-700 dark:text-slate-200">{{ vinculo.familiar.nome }}</strong> foi enviado com sucesso.
+      </p>
+    </div>
+
+    <div class="p-3.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-300">
+      Aguarde o Gestor da família autorizar o seu acesso através do painel.
+    </div>
+
+    <div class="pt-2 flex flex-col gap-2">
+      <button onclick="window.location.reload()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-sm">
+        Verificar se já fui aprovado
+      </button>
+      <a href="{% url 'logout' %}" class="text-xs text-slate-400 dark:text-slate-500 hover:underline">
+        Sair da conta
+      </a>
     </div>
   </div>
+
+  <script>
+    function atualizarIconeTema() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const sol = document.getElementById('icone-sol');
+      const lua = document.getElementById('icone-lua');
+      if (sol && lua) {
+        if (isDark) {
+          sol.classList.remove('hidden');
+          lua.classList.add('hidden');
+        } else {
+          sol.classList.add('hidden');
+          lua.classList.remove('hidden');
+        }
+      }
+    }
+
+    function alternarTema() {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      }
+      atualizarIconeTema();
+    }
+    atualizarIconeTema();
+  </script>
 </body>
 </html>

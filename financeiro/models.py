@@ -1,126 +1,153 @@
-import uuid
+import os
+import secrets
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
 
 def gerar_codigo_convite():
-    return uuid.uuid4().hex[:6].upper()
+    return secrets.token_hex(4).upper()
 
-class Familiar(models.Model):
-    nome = models.CharField(max_length=150, verbose_name="Nome do Familiar")
-    data_nascimento = models.DateField(null=True, blank=True, verbose_name="Data de Nascimento")
-    codigo_convite = models.CharField(
-        max_length=10, 
-        unique=True, 
-        default=gerar_codigo_convite, 
-        verbose_name="Código de Convite da Família"
-    )
-    criado_em = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        verbose_name = "Familiar"
-        verbose_name_plural = "Familiares"
-        ordering = ['nome']
+class PerfilUsuario(models.Model):
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
+    foto = models.ImageField(upload_to='avatars/', null=True, blank=True)
 
     def __str__(self):
-        return f"{self.nome} (Código: {self.codigo_convite})"
+        return f"Perfil de {self.usuario.username}"
+
+    @property
+    def iniciais(self):
+        nome = self.usuario.get_full_name().strip() or self.usuario.username.strip()
+        partes = nome.split()
+        if len(partes) >= 2:
+            return (partes[0][0] + partes[-1][0]).upper()
+        elif partes:
+            return partes[0][:2].upper()
+        return "U"
+
+
+@receiver(post_save, sender=User)
+def criar_ou_salvar_perfil(sender, instance, created, **kwargs):
+    if created:
+        PerfilUsuario.objects.create(usuario=instance)
+    else:
+        if hasattr(instance, 'perfil'):
+            instance.perfil.save()
+        else:
+            PerfilUsuario.objects.create(usuario=instance)
+
+
+class Familiar(models.Model):
+    nome = models.CharField(max_length=150)
+    codigo_convite = models.CharField(max_length=20, unique=True, default=gerar_codigo_convite)
+    ativo = models.BooleanField(default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nome
 
 
 class VinculoFamiliar(models.Model):
-    PAPEIS = [
-        ('GESTOR', 'Gestor Principal (Controle Total)'),
-        ('MEMBRO', 'Membro Familiar (Lança despesas e visualiza)'),
-    ]
-
-    STATUS = [
-        ('PENDENTE', 'Aguardando Aprovação do Gestor'),
-        ('APROVADO', 'Aprovado / Ativo'),
-        ('RECUSADO', 'Recusado'),
-    ]
-
+    PAPEL_CHOICES = (
+        ('GESTOR', 'Gestor'),
+        ('MEMBRO', 'Membro'),
+    )
+    STATUS_CHOICES = (
+        ('PENDENTE', 'Pendente'),
+        ('APROVADO', 'Aprovado'),
+    )
     usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vinculos')
-    familiar = models.ForeignKey(Familiar, on_delete=models.CASCADE, related_name='membros_vinculados')
-    papel = models.CharField(max_length=15, choices=PAPEIS, default='MEMBRO')
-    status = models.CharField(max_length=15, choices=STATUS, default='PENDENTE')
-    solicitado_em = models.DateTimeField(auto_now_add=True)
-    atualizado_em = models.DateTimeField(auto_now=True)
+    familiar = models.ForeignKey(Familiar, on_delete=models.CASCADE, related_name='vinculos')
+    papel = models.CharField(max_length=10, choices=PAPEL_CHOICES, default='MEMBRO')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDENTE')
+    criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('usuario', 'familiar')
-        verbose_name = "Vínculo Familiar"
-        verbose_name_plural = "Vínculos Familiares"
 
     def __str__(self):
-        return f"{self.usuario.username} -> {self.familiar.nome} [{self.papel} - {self.status}]"
+        return f"{self.usuario.username} -> {self.familiar.nome} ({self.papel} - {self.status})"
 
 
 class Categoria(models.Model):
-    TIPO_CHOICES = [
-        ('ENTRADA', 'Rendimento / Entrada'),
-        ('SAIDA', 'Despesa / Saída'),
-    ]
-    nome = models.CharField(max_length=100)
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
-    familiar = models.ForeignKey(
-        Familiar, 
-        on_delete=models.CASCADE, 
-        null=True, 
-        blank=True, 
-        related_name='categorias_customizadas'
+    TIPO_CHOICES = (
+        ('ENTRADA', 'Entrada (Receita)'),
+        ('SAIDA', 'Saída (Despesa)'),
     )
+    familiar = models.ForeignKey(Familiar, on_delete=models.CASCADE, related_name='categorias', null=True, blank=True)
+    nome = models.CharField(max_length=100)
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default='SAIDA')
 
     class Meta:
+        unique_together = ('familiar', 'nome')
         ordering = ['nome']
-        verbose_name = "Categoria"
-        verbose_name_plural = "Categorias"
 
     def __str__(self):
-        origem = f" ({self.familiar.nome})" if self.familiar else " (Padrão)"
-        return f"{self.nome} - {self.get_tipo_display()}{origem}"
-
-
-class TransacaoManager(models.Manager):
-    def para_familiar(self, familiar):
-        return self.filter(familiar=familiar)
+        return f"{self.nome} ({self.get_tipo_display()})"
 
 
 class Transacao(models.Model):
-    FORMAS_PAGAMENTO = [
-        ('DEBITO', 'Cartão de Débito'),
-        ('CREDITO', 'Cartão de Crédito'),
-        ('PIX', 'PIX'),
-        ('DINHEIRO', 'Dinheiro em Espécie'),
-        ('TRANSFERENCIA', 'Transferência Bancária'),
-    ]
-
-    TIPO_TRANSACAO = [
-        ('ENTRADA', 'Entrada (Aposentadoria / Benefício)'),
-        ('SAIDA', 'Saída (Despesa / Compra)'),
-    ]
-
-    familiar = models.ForeignKey(
-        Familiar, 
-        on_delete=models.CASCADE, 
-        related_name='transacoes', 
-        verbose_name="Familiar"
+    TIPO_CHOICES = (
+        ('ENTRADA', 'Entrada'),
+        ('SAIDA', 'Saída'),
     )
-    tipo = models.CharField(max_length=10, choices=TIPO_TRANSACAO, default='SAIDA', verbose_name="Tipo de Lançamento")
-    descricao = models.CharField(max_length=255, verbose_name="Descrição / Finalidade")
-    valor = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Valor (R$)")
-    data = models.DateField(verbose_name="Data do Lançamento")
-    categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True, related_name='transacoes', verbose_name="Categoria")
-    comprador = models.CharField(max_length=120, verbose_name="Responsável / Comprador", help_text="Ex: Jean Viana, Cuidadora Maria, etc.")
-    forma_pagamento = models.CharField(max_length=20, choices=FORMAS_PAGAMENTO, default='DEBITO', verbose_name="Forma de Pagamento")
-    comprovante = models.FileField(upload_to='comprovantes/%Y/%m/', null=True, blank=True, verbose_name="Nota Fiscal / Comprovante (PDF ou Imagem)")
-    observacoes = models.TextField(blank=True, null=True, verbose_name="Observações")
-    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='lancamentos_criados', verbose_name="Criado por")
+    FORMAS_PAGAMENTO = (
+        ('PIX', 'Pix'),
+        ('CARTAO_CREDITO', 'Cartão de Crédito'),
+        ('CARTAO_DEBITO', 'Cartão de Débito'),
+        ('DINHEIRO', 'Dinheiro'),
+        ('TRANSFERENCIA', 'Transferência'),
+        ('OUTRO', 'Outro'),
+    )
+
+    familiar = models.ForeignKey(Familiar, on_delete=models.CASCADE, related_name='transacoes')
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    data = models.DateField()
+    descricao = models.CharField(max_length=255)
+    categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True, related_name='transacoes')
+    valor = models.DecimalField(max_digits=12, decimal_places=2)
+    comprador = models.CharField(max_length=100)
+    forma_pagamento = models.CharField(max_length=20, choices=FORMAS_PAGAMENTO, default='PIX')
+    comprovante = models.FileField(upload_to='comprovantes/', null=True, blank=True)
+    observacoes = models.TextField(null=True, blank=True)
+
+    criado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='transacoes_criadas')
     criado_em = models.DateTimeField(auto_now_add=True)
-
-    objects = TransacaoManager()
-
-    class Meta:
-        ordering = ['-data', '-criado_em']
-        verbose_name = "Transação"
-        verbose_name_plural = "Transações"
+    atualizado_em = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"[{self.familiar.nome}] {self.data.strftime('%d/%m/%Y')} - {self.descricao} - R$ {self.valor}"
+        return f"{self.data} - {self.descricao} (R$ {self.valor})"
+
+
+class FechamentoCompetencia(models.Model):
+    familiar = models.ForeignKey(Familiar, on_delete=models.CASCADE, related_name='fechamentos')
+    ano = models.IntegerField()
+    mes = models.IntegerField()
+    fechado = models.BooleanField(default=True)
+    fechado_em = models.DateTimeField(auto_now=True)
+    fechado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        unique_together = ('familiar', 'ano', 'mes')
+
+    def __str__(self):
+        return f"{self.familiar.nome} - {self.mes:02d}/{self.ano} ({'Fechado' if self.fechado else 'Aberto'})"
+
+
+class LogAuditoriaTransacao(models.Model):
+    ACAO_CHOICES = (
+        ('CRIACAO', 'Criação'),
+        ('EDICAO', 'Edição'),
+        ('EXCLUSAO', 'Exclusão'),
+    )
+    familiar = models.ForeignKey(Familiar, on_delete=models.CASCADE, related_name='logs_auditoria')
+    transacao_id_ref = models.IntegerField()
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    acao = models.CharField(max_length=10, choices=ACAO_CHOICES)
+    detalhes = models.TextField()
+    data_hora = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"[{self.acao}] Ref #{self.transacao_id_ref} por {self.usuario}"
