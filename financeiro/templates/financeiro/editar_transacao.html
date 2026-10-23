@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Editar Lançamento - Gestão Financeira</title>
+  <title>Editar Lançamento - {{ transacao.descricao }}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -16,104 +16,104 @@
     }
   </script>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen p-4 flex items-center justify-center transition-colors duration-200">
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen transition-colors duration-200 flex items-center justify-center p-4">
 
-  <!-- Botão Flutuante Dark/Light Mode -->
-  <button type="button" 
-          onclick="alternarTema()" 
-          title="Alternar Tema Claro/Escuro"
-          class="fixed top-4 right-4 p-2.5 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm transition">
-    <span id="icone-sol" class="hidden text-sm">☀️</span>
-    <span id="icone-lua" class="hidden text-sm">🌙</span>
-  </button>
-
-  <div class="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-2xl shadow-xl w-full max-w-lg border border-slate-200 dark:border-slate-700 space-y-5">
+  <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-2xl max-w-lg w-full p-5 sm:p-7 space-y-6">
     
-    <div class="flex justify-between items-center border-b dark:border-slate-700 pb-3">
+    <!-- Cabeçalho -->
+    <div class="flex items-center justify-between border-b dark:border-slate-700 pb-4">
       <div>
         <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Editar Lançamento</h1>
-        <p class="text-xs text-slate-400">Atualize os detalhes da transação financeira</p>
+        <p class="text-xs text-slate-400 mt-0.5">Grupo: <span class="font-semibold text-slate-600 dark:text-slate-300">{{ transacao.familiar.nome }}</span></p>
       </div>
-      <a href="{% url 'index' %}" class="text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold px-3 py-1.5 rounded-lg transition">Voltar</a>
+      <a href="{% url 'dashboard' transacao.familiar.id %}?mes={{ transacao.data.month }}&ano={{ transacao.data.year }}" 
+         class="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+        ✕ Voltar
+      </a>
     </div>
 
-    <form method="post" enctype="multipart/form-data" class="space-y-3.5">
+    <!-- Mensagens do Django -->
+    {% if messages %}
+      <div class="space-y-2">
+        {% for message in messages %}
+          <div class="p-3 text-xs rounded-xl font-medium {% if message.tags == 'error' %}bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-900{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <!-- Formulário Principal de Edição -->
+    <form method="post" enctype="multipart/form-data" class="space-y-4">
       {% csrf_token %}
+
       {% for field in form %}
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ field.label }}</label>
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+            {{ field.label }}
+          </label>
           {{ field }}
           {% if field.errors %}
-            <span class="text-xs text-rose-500">{{ field.errors.0 }}</span>
+            <p class="text-[11px] text-rose-500 font-medium">{{ field.errors.0 }}</p>
           {% endif %}
         </div>
       {% endfor %}
 
-      <div class="flex gap-2.5 pt-3 border-t dark:border-slate-700">
-        <a href="{% url 'index' %}" class="flex-1 text-center bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2.5 rounded-xl text-xs transition">
-          Cancelar
-        </a>
-        <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-md">
-          Salvar Alterações
+      <!-- Rodapé com Ações Protegidas -->
+      <div class="flex items-center justify-between gap-3 pt-5 border-t dark:border-slate-700">
+        <!-- Disparador da Exclusão -->
+        <button type="button" 
+                onclick="document.getElementById('modal-exclusao').classList.remove('hidden')"
+                class="text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-3.5 py-2 rounded-xl font-semibold transition border border-rose-200 dark:border-rose-800">
+          Excluir
         </button>
+
+        <div class="flex items-center gap-2">
+          <a href="{% url 'dashboard' transacao.familiar.id %}?mes={{ transacao.data.month }}&ano={{ transacao.data.year }}" 
+             class="text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 px-3.5 py-2 rounded-xl font-semibold transition">
+            Cancelar
+          </a>
+          <button type="submit" 
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition shadow-sm active:scale-95">
+            Salvar Alterações
+          </button>
+        </div>
       </div>
+    </form>
+
+    <!-- Formulário Invisível para Executar a Exclusão -->
+    <form id="form-excluir" action="{% url 'excluir_transacao' transacao.id %}" method="post" class="hidden">
+      {% csrf_token %}
     </form>
 
   </div>
 
-  {{ categorias_json|json_script:"categorias-data" }}
+  <!-- Modal de Confirmação de Exclusão -->
+  <div id="modal-exclusao" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-sm w-full p-6 text-center space-y-4 text-slate-800 dark:text-slate-100">
+      <div class="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-300 flex items-center justify-center text-xl mx-auto">
+        ⚠️
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-base font-bold">Excluir Lançamento</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          Tem certeza de que deseja apagar o registro <strong class="text-slate-700 dark:text-slate-200">"{{ transacao.descricao }}"</strong> no valor de <strong class="text-slate-700 dark:text-slate-200">R$ {{ transacao.valor }}</strong>?
+        </p>
+      </div>
+      <div class="flex gap-2.5 pt-2">
+        <button type="button" 
+                onclick="document.getElementById('modal-exclusao').classList.add('hidden')" 
+                class="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition">
+          Cancelar
+        </button>
+        <button type="button" 
+                onclick="document.getElementById('form-excluir').submit()" 
+                class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2.5 rounded-xl text-xs font-semibold transition shadow-sm">
+          Sim, Excluir
+        </button>
+      </div>
+    </div>
+  </div>
 
-  <script>
-    function atualizarIconeTema() {
-      const isDark = document.documentElement.classList.contains('dark');
-      const sol = document.getElementById('icone-sol');
-      const lua = document.getElementById('icone-lua');
-      if (sol && lua) {
-        if (isDark) {
-          sol.classList.remove('hidden');
-          lua.classList.add('hidden');
-        } else {
-          sol.classList.add('hidden');
-          lua.classList.remove('hidden');
-        }
-      }
-    }
-
-    function alternarTema() {
-      if (document.documentElement.classList.contains('dark')) {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-      } else {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      }
-      atualizarIconeTema();
-    }
-    atualizarIconeTema();
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const selectTipo = document.getElementById('id_tipo_lancamento');
-      const selectCategoria = document.getElementById('id_categoria_select');
-      const categoriasDataEl = document.getElementById('categorias-data');
-
-      if (selectTipo && selectCategoria && categoriasDataEl) {
-        const categorias = JSON.parse(categoriasDataEl.textContent);
-        function atualizarCategoriasPorTipo() {
-          const tipoEscolhido = selectTipo.value;
-          const valorSelecionadoAnterior = selectCategoria.value;
-          selectCategoria.innerHTML = '<option value="">---------</option>';
-          const filtradas = categorias.filter(cat => cat.tipo === tipoEscolhido);
-          filtradas.forEach(cat => {
-            const opt = document.createElement('option');
-            opt.value = cat.id;
-            opt.textContent = cat.nome;
-            if (String(cat.id) === String(valorSelecionadoAnterior)) opt.selected = true;
-            selectCategoria.appendChild(opt);
-          });
-        }
-        selectTipo.addEventListener('change', atualizarCategoriasPorTipo);
-      }
-    });
-  </script>
 </body>
 </html>

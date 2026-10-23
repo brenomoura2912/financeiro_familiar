@@ -1,27 +1,74 @@
 import csv
+import io
 import json
 from datetime import date
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.utils import timezone
+from django.utils.crypto import get_random_string
+from django.utils.html import strip_tags
 
-from .forms import CadastroForm, FamiliarForm, EntrarFamiliaForm, TransacaoForm, EditarPerfilForm
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+from django.http import JsonResponse
+
+from .forms import (
+    CadastroForm,
+    EditarPerfilForm,
+    EntrarFamiliaForm,
+    FamiliarForm,
+    TransacaoForm,
+)
 from .models import (
     Categoria,
+    CodigoVerificacaoEmail,
     Familiar,
-    FechamentoCompetencia,
-    LogAuditoriaTransacao,
+    FechamentoMes,
+    LogAuditoria,
     PerfilUsuario,
     Transacao,
     VinculoFamiliar,
 )
+
+
+def enviar_email_codigo_verificacao(usuario, email_destino, finalidade):
+    codigo_obj = CodigoVerificacaoEmail.gerar_codigo(usuario, email_destino, finalidade)
+    assunto = "Código de verificação - Gestão Financeira Familiar"
+    if finalidade == 'ALTERACAO_EMAIL':
+        assunto = "Confirmação de alteração de e-mail - Gestão Financeira Familiar"
+
+    contexto = {
+        'usuario': usuario,
+        'codigo': codigo_obj.codigo,
+        'finalidade': finalidade,
+    }
+    html_mensagem = render_to_string('financeiro/emails/email_codigo.html', contexto)
+    mensagem_plana = strip_tags(html_mensagem)
+
+    send_mail(
+        subject=assunto,
+        message=mensagem_plana,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[email_destino],
+        html_message=html_mensagem,
+        fail_silently=False,
+    )
+    return codigo_obj
 
 
 def login_view(request):
@@ -29,25 +76,32 @@ def login_view(request):
         return redirect('meus_familiares')
 
     if request.method == 'POST':
-        identificador = request.POST.get('username', '').strip()
-        password = request.POST.get('password', '')
-
-        if not identificador or not password:
-            messages.error(request, "Por favor, preencha o e-mail/utilizador e a senha.")
-            return render(request, 'financeiro/login.html')
+        identificador = request.POST.get('identificador', '').strip()
+        senha = request.POST.get('senha', '')
 
         usuario_obj = User.objects.filter(
-            Q(email__iexact=identificador) | Q(username__iexact=identificador)
+            Q(email__iexact=identificador) | Q(username__iexact=identificador),
+            is_active=True
         ).first()
 
         if usuario_obj:
-            user = authenticate(request, username=usuario_obj.username, password=password)
+            user = authenticate(request, username=usuario_obj.username, password=senha)
             if user is not None:
                 login(request, user)
-                request.session.pop('familiar_ativo_id', None)
                 return redirect('meus_familiares')
 
-        messages.error(request, "E-mail/utilizador ou senha incorretos.")
+        usuario_inativo = User.objects.filter(
+            Q(email__iexact=identificador) | Q(username__iexact=identificador),
+            is_active=False
+        ).first()
+
+        if usuario_inativo and usuario_inativo.check_password(senha):
+            request.session['usuario_verificacao_id'] = usuario_inativo.id
+            enviar_email_codigo_verificacao(usuario_inativo, usuario_inativo.email, 'CADASTRO')
+            messages.info(request, "A sua conta ainda não foi ativada. Enviámos um novo código para o seu e-mail.")
+            return redirect('verificar_email')
+
+        messages.error(request, "Nome de utilizador/e-mail ou palavra-passe incorretos.")
 
     return render(request, 'financeiro/login.html')
 
@@ -59,19 +113,621 @@ def cadastro_view(request):
     if request.method == 'POST':
         form = CadastroForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, "Conta criada com sucesso!")
-            return redirect('onboarding')
+            try:
+                with transaction.atomic():
+                    user = form.save()
+                    PerfilUsuario.objects.get_or_create(usuario=user)
+                    enviar_email_codigo_verificacao(user, user.email, 'CADASTRO')
+
+                request.session['usuario_verificacao_id'] = user.id
+                messages.success(request, f"Código de ativação enviado para {user.email}!")
+                return redirect('verificar_email')
+            except Exception as e:
+                messages.error(request, f"Falha no registo: {str(e)}")
+        else:
+            for campo, erros in form.errors.items():
+                for erro in erros:
+                    messages.error(request, erro)
     else:
         form = CadastroForm()
 
     return render(request, 'financeiro/cadastro.html', {'form': form})
 
 
+def verificar_email_view(request):
+    usuario_id = request.session.get('usuario_verificacao_id')
+    if not usuario_id:
+        messages.error(request, "Sessão de verificação expirada. Inicie sessão novamente.")
+        return redirect('login')
+
+    usuario = get_object_or_404(User, pk=usuario_id)
+
+    if request.method == 'POST':
+        codigo_digitado = request.POST.get('codigo', '').strip()
+        codigo_obj = CodigoVerificacaoEmail.objects.filter(
+            usuario=usuario,
+            codigo=codigo_digitado,
+            finalidade='CADASTRO',
+            utilizado=False
+        ).order_by('-criado_em').first()
+
+        if codigo_obj and codigo_obj.esta_valido():
+            codigo_obj.utilizado = True
+            codigo_obj.save()
+
+            usuario.is_active = True
+            usuario.save()
+
+            del request.session['usuario_verificacao_id']
+            login(request, usuario)
+            messages.success(request, "Conta ativada com sucesso!")
+            return redirect('meus_familiares')
+        else:
+            messages.error(request, "Código incorreto ou expirado. Tente novamente.")
+
+    return render(request, 'financeiro/verificar_email.html', {'email': usuario.email})
+
+
+def reenviar_codigo_email_view(request):
+    usuario_id = request.session.get('usuario_verificacao_id')
+    if not usuario_id:
+        messages.error(request, "Sessão expirada. Inicie o registo novamente.")
+        return redirect('login')
+
+    usuario = get_object_or_404(User, pk=usuario_id)
+    try:
+        enviar_email_codigo_verificacao(usuario, usuario.email, 'CADASTRO')
+        messages.success(request, f"Novo código enviado para {usuario.email}!")
+    except Exception as e:
+        messages.error(request, f"Erro ao reenviar o código: {str(e)}")
+
+    return redirect('verificar_email')
+
+
 def logout_view(request):
     logout(request)
     return redirect('login')
+
+
+@login_required
+def meus_familiares_view(request):
+    vinculos = VinculoFamiliar.objects.filter(usuario=request.user, status='APROVADO').select_related('familiar')
+    form_criar = FamiliarForm()
+    form_entrar = EntrarFamiliaForm()
+
+    if request.method == 'POST':
+        if 'criar_familia' in request.POST:
+            form_criar = FamiliarForm(request.POST)
+            if form_criar.is_valid():
+                familiar = form_criar.save(commit=False)
+                familiar.criador = request.user
+                familiar.codigo_convite = get_random_string(8).upper()
+                familiar.save()
+
+                VinculoFamiliar.objects.create(
+                    usuario=request.user,
+                    familiar=familiar,
+                    papel='GESTOR',
+                    status='APROVADO'
+                )
+
+                categorias_padrao = [
+                    ('Alimentação', 'DESPESA', 'utensils', '#ef4444'),
+                    ('Moradia', 'DESPESA', 'home', '#f97316'),
+                    ('Transporte', 'DESPESA', 'car', '#eab308'),
+                    ('Saúde', 'DESPESA', 'heartbeat', '#06b6d4'),
+                    ('Salário', 'RECEITA', 'wallet', '#10b981'),
+                    ('Investimentos', 'RECEITA', 'chart-line', '#3b82f6'),
+                ]
+                for nome_cat, tipo_cat, icone_cat, cor_cat in categorias_padrao:
+                    Categoria.objects.create(
+                        familiar=familiar,
+                        nome=nome_cat,
+                        tipo=tipo_cat,
+                        icone=icone_cat,
+                        cor=cor_cat
+                    )
+
+                messages.success(request, f"Família '{familiar.nome}' criada com sucesso!")
+                return redirect('dashboard', familiar_id=familiar.id)
+
+        elif 'entrar_familia' in request.POST:
+            form_entrar = EntrarFamiliaForm(request.POST)
+            if form_entrar.is_valid():
+                codigo = form_entrar.cleaned_data['codigo_convite'].strip().upper()
+                familiar = Familiar.objects.filter(codigo_convite=codigo).first()
+                if not familiar:
+                    messages.error(request, "Código de convite inválido.")
+                else:
+                    vinculo_existente = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar).first()
+                    if vinculo_existente:
+                        if vinculo_existente.status == 'APROVADO':
+                            messages.info(request, "Já faz parte deste familiar.")
+                            return redirect('dashboard', familiar_id=familiar.id)
+                        elif vinculo_existente.status == 'PENDENTE':
+                            messages.warning(request, "O seu pedido de entrada já se encontra pendente.")
+                    else:
+                        VinculoFamiliar.objects.create(
+                            usuario=request.user,
+                            familiar=familiar,
+                            papel='MEMBRO',
+                            status='PENDENTE'
+                        )
+                        messages.success(request, f"Pedido enviado para '{familiar.nome}'. Aguarde aprovação.")
+                        return redirect('meus_familiares')
+
+    contexto = {
+        'vinculos': vinculos,
+        'form_criar': form_criar,
+        'form_entrar': form_entrar,
+    }
+    return render(request, 'financeiro/meus_familiares.html', contexto)
+
+
+@login_required
+def dashboard_view(request, familiar_id):
+    familiar = get_object_or_404(Familiar, pk=familiar_id)
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
+
+    if not vinculo:
+        messages.error(request, "Não possui permissão para aceder a este familiar.")
+        return redirect('meus_familiares')
+
+    hoje = date.today()
+    try:
+        mes_filtro = int(request.GET.get('mes', hoje.month))
+    except (ValueError, TypeError):
+        mes_filtro = hoje.month
+
+    try:
+        ano_filtro = int(request.GET.get('ano', hoje.year))
+    except (ValueError, TypeError):
+        ano_filtro = hoje.year
+
+    fechamento = FechamentoMes.objects.filter(familiar=familiar, mes=mes_filtro, ano=ano_filtro).first()
+    esta_fechado = fechamento.fechado if fechamento else False
+
+    # Apenas transações ATIVAS entram no extrato e nos cálculos
+    transacoes = Transacao.objects.filter(
+        familiar=familiar,
+        ativo=True,
+        data__year=ano_filtro,
+        data__month=mes_filtro
+    ).select_related('categoria', 'usuario').order_by('-data', '-criado_em')
+
+    busca_texto = request.GET.get('q', '').strip()
+    filtro_tipo = request.GET.get('tipo', '').strip()
+    filtro_categoria = request.GET.get('categoria', '').strip()
+    filtro_comprador = request.GET.get('comprador', '').strip()
+    filtro_forma_pgto = request.GET.get('forma_pagamento', '').strip()
+
+    filtros_ativos = any([busca_texto, filtro_tipo, filtro_categoria, filtro_comprador, filtro_forma_pgto])
+
+    if busca_texto:
+        transacoes = transacoes.filter(Q(descricao__icontains=busca_texto) | Q(observacoes__icontains=busca_texto))
+    if filtro_tipo:
+        transacoes = transacoes.filter(tipo=filtro_tipo)
+    if filtro_categoria:
+        transacoes = transacoes.filter(categoria_id=filtro_categoria)
+    if filtro_comprador:
+        transacoes = transacoes.filter(comprador__iexact=filtro_comprador)
+    if filtro_forma_pgto:
+        transacoes = transacoes.filter(forma_pagamento=filtro_forma_pgto)
+
+    res_receitas = transacoes.filter(tipo__in=['RECEITA', 'ENTRADA']).aggregate(s=Sum('valor'))['s']
+    total_receitas = res_receitas if res_receitas is not None else Decimal('0.00')
+
+    res_despesas = transacoes.filter(tipo__in=['DESPESA', 'SAIDA']).aggregate(s=Sum('valor'))['s']
+    total_despesas = res_despesas if res_despesas is not None else Decimal('0.00')
+
+    saldo = total_receitas - total_despesas
+
+    despesas_por_cat = (
+        transacoes.filter(tipo__in=['DESPESA', 'SAIDA'])
+        .values('categoria__nome', 'categoria__cor')
+        .annotate(total=Sum('valor'))
+        .order_by('-total')
+    )
+
+    chart_labels = []
+    chart_values = []
+    chart_colors = []
+    for item in despesas_por_cat:
+        chart_labels.append(item['categoria__nome'] or 'Sem Categoria')
+        chart_values.append(float(item['total']))
+        chart_colors.append(item['categoria__cor'] or '#6366f1')
+
+    compradores_disponiveis = list(
+        Transacao.objects.filter(familiar=familiar, ativo=True)
+        .exclude(comprador__isnull=True)
+        .exclude(comprador__exact='')
+        .values_list('comprador', flat=True)
+        .distinct()
+    )
+
+    formas_pagamento_disponiveis = getattr(Transacao, 'FORMA_PAGAMENTO_CHOICES', [
+        ('DINHEIRO', 'Dinheiro'),
+        ('PIX', 'PIX'),
+        ('DEBITO', 'Cartão de Débito'),
+        ('CREDITO', 'Cartão de Crédito'),
+    ])
+
+    lista_meses = [
+        (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
+        (5, 'Maio'), (6, 'Junho'), (7, 'Julho'), (8, 'Agosto'),
+        (9, 'Setembro'), (10, 'Outubro'), (11, 'Novembro'), (12, 'Dezembro')
+    ]
+
+    membros = VinculoFamiliar.objects.filter(familiar=familiar).select_related('usuario')
+    categorias = Categoria.objects.filter(familiar=familiar)
+
+    # Transações na lixeira (acessíveis apenas para o gestor)
+    transacoes_excluidas = []
+    if vinculo.papel == 'GESTOR':
+        transacoes_excluidas = Transacao.objects.filter(
+            familiar=familiar,
+            ativo=False
+        ).select_related('categoria', 'usuario').order_by('-data')
+
+    form_transacao = TransacaoForm(familiar=familiar)
+
+    if request.method == 'POST':
+        if esta_fechado or not familiar.ativo:
+            messages.error(request, "Este período ou familiar encontra-se fechado/arquivado.")
+            return redirect(f"{request.path}?mes={mes_filtro}&ano={ano_filtro}")
+
+        form_transacao = TransacaoForm(request.POST, request.FILES, familiar=familiar)
+        if form_transacao.is_valid():
+            transacao = form_transacao.save(commit=False)
+            transacao.familiar = familiar
+            transacao.usuario = request.user
+            transacao.ativo = True
+            transacao.save()
+
+            LogAuditoria.objects.create(
+                transacao=transacao,
+                usuario=request.user,
+                acao='CRIACAO',
+                detalhes=f"Lançamento de {transacao.tipo}: R$ {transacao.valor}"
+            )
+
+            messages.success(request, "Lançamento registado com sucesso!")
+            return redirect(f"{request.path}?mes={mes_filtro}&ano={ano_filtro}")
+
+    logs_auditoria = LogAuditoria.objects.filter(transacao__familiar=familiar).select_related('usuario').order_by('-data_hora')[:50]
+
+    contexto = {
+        'familiar': familiar,
+        'familiar_atual': familiar,
+        'vinculo': vinculo,
+        'eh_gestor': (vinculo.papel == 'GESTOR'),
+        'transacoes': transacoes,
+        'transacoes_excluidas': transacoes_excluidas,
+        'form_transacao': form_transacao,
+        'total_receitas': total_receitas,
+        'total_despesas': total_despesas,
+        'saldo': saldo,
+        'mes_selecionado': mes_filtro,
+        'ano_selecionado': ano_filtro,
+        'mes_travado': esta_fechado,
+        'membros': membros,
+        'membros_aprovados': membros.filter(status='APROVADO'),
+        'categorias': categorias,
+        'lista_meses': lista_meses,
+        'chart_labels_json': json.dumps(chart_labels),
+        'chart_values_json': json.dumps(chart_values),
+        'chart_colors_json': json.dumps(chart_colors),
+        'filtros_ativos': filtros_ativos,
+        'busca_texto': busca_texto,
+        'filtro_tipo': filtro_tipo,
+        'filtro_categoria': filtro_categoria,
+        'filtro_comprador': filtro_comprador,
+        'filtro_forma_pgto': filtro_forma_pgto,
+        'compradores_disponiveis': compradores_disponiveis,
+        'formas_pagamento_disponiveis': formas_pagamento_disponiveis,
+        'logs_auditoria': logs_auditoria,
+    }
+    return render(request, 'financeiro/index.html', contexto)
+
+
+@login_required
+def alternar_fechamento_mes_view(request, familiar_id, ano, mes):
+    familiar = get_object_or_404(Familiar, pk=familiar_id)
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
+
+    if not vinculo:
+        messages.error(request, "Apenas gestores podem bloquear ou reabrir competências.")
+        return redirect('dashboard', familiar_id=familiar.id)
+
+    fechamento, _ = FechamentoMes.objects.get_or_create(
+        familiar=familiar,
+        mes=mes,
+        ano=ano
+    )
+    fechamento.fechado = not fechamento.fechado
+    fechamento.fechado_por = request.user
+    fechamento.fechado_em = timezone.now() if fechamento.fechado else None
+    fechamento.save()
+
+    status_str = "fechada" if fechamento.fechado else "reaberta"
+    messages.success(request, f"Competência {mes:02d}/{ano} {status_str} com sucesso.")
+    return redirect(f"/dashboard/{familiar.id}/?mes={mes}&ano={ano}")
+
+
+@login_required
+def alternar_arquivamento_familiar_view(request, familiar_id):
+    familiar = get_object_or_404(Familiar, pk=familiar_id)
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
+
+    if not vinculo:
+        messages.error(request, "Apenas gestores podem arquivar ou desarquivar.")
+        return redirect('dashboard', familiar_id=familiar.id)
+
+    familiar.ativo = not familiar.ativo
+    familiar.save()
+
+    estado = "arquivado" if not familiar.ativo else "desarquivado"
+    messages.success(request, f"Familiar '{familiar.nome}' {estado} com sucesso.")
+    return redirect('dashboard', familiar_id=familiar.id)
+
+
+@login_required
+def exportar_csv_view(request, familiar_id):
+    familiar = get_object_or_404(Familiar, pk=familiar_id)
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
+
+    if not vinculo:
+        messages.error(request, "Acesso não autorizado.")
+        return redirect('meus_familiares')
+
+    hoje = date.today()
+    try:
+        mes_filtro = int(request.GET.get('mes', hoje.month))
+    except (ValueError, TypeError):
+        mes_filtro = hoje.month
+
+    try:
+        ano_filtro = int(request.GET.get('ano', hoje.year))
+    except (ValueError, TypeError):
+        ano_filtro = hoje.year
+
+    transacoes = Transacao.objects.filter(
+        familiar=familiar,
+        ativo=True,
+        data__year=ano_filtro,
+        data__month=mes_filtro
+    ).select_related('categoria', 'usuario').order_by('data')
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="extrato_{familiar.nome}_{mes_filtro:02d}_{ano_filtro}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Data', 'Tipo', 'Descrição', 'Categoria', 'Valor (R$)', 'Comprador', 'Forma de Pagamento'])
+
+    for t in transacoes:
+        writer.writerow([
+            t.data.strftime('%d/%m/%Y'),
+            t.get_tipo_display(),
+            t.descricao,
+            t.categoria.nome if t.categoria else '-',
+            f"{t.valor:.2f}".replace('.', ','),
+            t.comprador or '-',
+            t.get_forma_pagamento_display(),
+        ])
+
+    return response
+
+
+@login_required
+def exportar_pdf_view(request, familiar_id):
+    familiar = get_object_or_404(Familiar, pk=familiar_id)
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
+
+    if not vinculo:
+        messages.error(request, "Acesso não autorizado.")
+        return redirect('meus_familiares')
+
+    hoje = date.today()
+    try:
+        mes_filtro = int(request.GET.get('mes', hoje.month))
+    except (ValueError, TypeError):
+        mes_filtro = hoje.month
+
+    try:
+        ano_filtro = int(request.GET.get('ano', hoje.year))
+    except (ValueError, TypeError):
+        ano_filtro = hoje.year
+
+    transacoes = Transacao.objects.filter(
+        familiar=familiar,
+        ativo=True,
+        data__year=ano_filtro,
+        data__month=mes_filtro
+    ).select_related('categoria', 'usuario').order_by('data')
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+    elementos = []
+    styles = getSampleStyleSheet()
+
+    titulo = Paragraph(f"<b>Extrato Financeiro - {familiar.nome}</b>", styles['Title'])
+    subtitulo = Paragraph(f"Competência: {mes_filtro:02d}/{ano_filtro} | Emitido em: {hoje.strftime('%d/%m/%Y')}", styles['Normal'])
+    elementos.extend([titulo, subtitulo, Spacer(1, 15)])
+
+    dados_tabela = [['Data', 'Tipo', 'Descrição', 'Categoria', 'Valor (R$)', 'Comprador']]
+    for t in transacoes:
+        dados_tabela.append([
+            t.data.strftime('%d/%m/%Y'),
+            t.get_tipo_display(),
+            t.descricao[:25],
+            t.categoria.nome if t.categoria else '-',
+            f"{t.valor:.2f}".replace('.', ','),
+            t.comprador or '-'
+        ])
+
+    tabela = Table(dados_tabela, colWidths=[65, 60, 150, 95, 75, 95])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e1b4b')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('ALIGN', (4, 0), (4, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')])
+    ]))
+    elementos.append(tabela)
+
+    doc.build(elementos)
+    buffer.seek(0)
+
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="extrato_{familiar.nome}_{mes_filtro:02d}_{ano_filtro}.pdf"'
+    return response
+
+
+@login_required
+def criar_categoria_view(request, familiar_id):
+    familiar = get_object_or_404(Familiar, pk=familiar_id)
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
+
+    if not vinculo:
+        messages.error(request, "Apenas gestores podem gerir categorias.")
+        return redirect('dashboard', familiar_id=familiar.id)
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        tipo = request.POST.get('tipo', 'DESPESA')
+        cor = request.POST.get('cor', '#6366f1')
+        icone = request.POST.get('icone', 'tag')
+
+        if nome:
+            Categoria.objects.create(
+                familiar=familiar,
+                nome=nome,
+                tipo=tipo,
+                cor=cor,
+                icone=icone
+            )
+            messages.success(request, f"Categoria '{nome}' criada com sucesso!")
+        else:
+            messages.error(request, "O nome da categoria não pode estar vazio.")
+
+    return redirect('dashboard', familiar_id=familiar.id)
+
+
+@login_required
+def excluir_categoria_view(request, categoria_id):
+    categoria = get_object_or_404(Categoria, pk=categoria_id)
+    familiar = categoria.familiar
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
+
+    if not vinculo:
+        messages.error(request, "Apenas gestores podem remover categorias.")
+        return redirect('dashboard', familiar_id=familiar.id)
+
+    if request.method == 'POST':
+        categoria.delete()
+        messages.success(request, "Categoria removida com sucesso!")
+
+    return redirect('dashboard', familiar_id=familiar.id)
+
+
+@login_required
+def editar_transacao_view(request, transacao_id):
+    transacao = get_object_or_404(Transacao, pk=transacao_id)
+    familiar = transacao.familiar
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
+
+    if not vinculo:
+        messages.error(request, "Acesso não autorizado.")
+        return redirect('meus_familiares')
+
+    fechamento = FechamentoMes.objects.filter(
+        familiar=familiar,
+        mes=transacao.data.month,
+        ano=transacao.data.year
+    ).first()
+
+    if fechamento and fechamento.fechado:
+        messages.error(request, "Esta competência está fechada. A transação não pode ser modificada.")
+        return redirect('dashboard', familiar_id=familiar.id)
+
+    if request.method == 'POST':
+        form = TransacaoForm(request.POST, request.FILES, instance=transacao, familiar=familiar)
+        if form.is_valid():
+            form.save()
+            LogAuditoria.objects.create(
+                transacao=transacao,
+                usuario=request.user,
+                acao='EDICAO',
+                detalhes="Transação editada."
+            )
+            messages.success(request, "Transação atualizada com sucesso!")
+            return redirect(f"/dashboard/{familiar.id}/?mes={transacao.data.month}&ano={transacao.data.year}")
+    else:
+        form = TransacaoForm(instance=transacao, familiar=familiar)
+
+    return render(request, 'financeiro/editar_transacao.html', {'form': form, 'transacao': transacao})
+
+
+@login_required
+def excluir_transacao_view(request, transacao_id):
+    transacao = get_object_or_404(Transacao, pk=transacao_id)
+    familiar = transacao.familiar
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
+
+    if not vinculo:
+        messages.error(request, "Acesso não autorizado.")
+        return redirect('meus_familiares')
+
+    mes = transacao.data.month
+    ano = transacao.data.year
+
+    fechamento = FechamentoMes.objects.filter(familiar=familiar, mes=mes, ano=ano).first()
+    if fechamento and fechamento.fechado:
+        messages.error(request, "Esta competência está fechada. A transação não pode ser removida.")
+        return redirect(f"/dashboard/{familiar.id}/?mes={mes}&ano={ano}")
+
+    if request.method == 'POST':
+        # SOFT DELETE: não apaga da base de dados, apenas desativa
+        transacao.ativo = False
+        transacao.save()
+
+        LogAuditoria.objects.create(
+            transacao=transacao,
+            usuario=request.user,
+            acao='EXCLUSAO',
+            detalhes=f"Lançamento '{transacao.descricao}' (R$ {transacao.valor}) movido para a lixeira."
+        )
+        messages.success(request, "Lançamento movido para a lixeira com sucesso!")
+
+    return redirect(f"/dashboard/{familiar.id}/?mes={mes}&ano={ano}")
+
+
+@login_required
+def restaurar_transacao_view(request, transacao_id):
+    transacao = get_object_or_404(Transacao, pk=transacao_id)
+    familiar = transacao.familiar
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
+
+    if not vinculo:
+        messages.error(request, "Apenas gestores podem restaurar lançamentos eliminados.")
+        return redirect('dashboard', familiar_id=familiar.id)
+
+    # RESTAURAÇÃO: reativa o registo
+    transacao.ativo = True
+    transacao.save()
+
+    LogAuditoria.objects.create(
+        transacao=transacao,
+        usuario=request.user,
+        acao='EDICAO',
+        detalhes=f"Lançamento '{transacao.descricao}' restaurado pelo gestor."
+    )
+    messages.success(request, f"Lançamento '{transacao.descricao}' restaurado com sucesso!")
+    return redirect(f"/dashboard/{familiar.id}/?mes={transacao.data.month}&ano={transacao.data.year}")
 
 
 @login_required
@@ -85,8 +741,14 @@ def perfil_view(request):
             form_perfil = EditarPerfilForm(request.POST, request.FILES, instance=request.user)
             if form_perfil.is_valid():
                 form_perfil.save()
-                messages.success(request, "Dados do perfil atualizados com sucesso!")
+                messages.success(request, "Perfil atualizado com sucesso!")
                 return redirect('perfil')
+
+        elif 'remover_foto' in request.POST:
+            if perfil.foto:
+                perfil.foto.delete(save=True)
+                messages.success(request, "Fotografia removida com sucesso!")
+            return redirect('perfil')
 
         elif 'alterar_senha' in request.POST:
             form_senha = PasswordChangeForm(user=request.user, data=request.POST)
@@ -95,698 +757,39 @@ def perfil_view(request):
                 update_session_auth_hash(request, user)
                 messages.success(request, "Palavra-passe alterada com sucesso!")
                 return redirect('perfil')
-
-    return render(request, 'financeiro/perfil.html', {
-        'perfil': perfil,
-        'form_perfil': form_perfil,
-        'form_senha': form_senha,
-    })
-
-
-@login_required
-def remover_foto_perfil(request):
-    if hasattr(request.user, 'perfil') and request.user.perfil.foto:
-        request.user.perfil.foto.delete(save=True)
-        messages.success(request, "Foto de perfil removida com sucesso!")
-    return redirect('perfil')
-
-
-@login_required
-def onboarding_view(request):
-    vinculos = VinculoFamiliar.objects.filter(usuario=request.user)
-    if vinculos.filter(status='APROVADO').exists():
-        return redirect('meus_familiares')
-
-    if vinculos.filter(status='PENDENTE').exists():
-        return render(request, 'financeiro/pendente.html')
-
-    form_familiar = FamiliarForm()
-    form_entrar = EntrarFamiliaForm()
-
-    if request.method == 'POST':
-        if 'criar_familiar' in request.POST:
-            form_familiar = FamiliarForm(request.POST)
-            if form_familiar.is_valid():
-                familiar = form_familiar.save()
-                VinculoFamiliar.objects.create(
-                    usuario=request.user,
-                    familiar=familiar,
-                    papel='GESTOR',
-                    status='APROVADO'
-                )
-                request.session['familiar_ativo_id'] = familiar.id
-                messages.success(request, f"Familiar '{familiar.nome}' criado com sucesso!")
-                return redirect('index')
-
-        elif 'entrar_familia' in request.POST:
-            form_entrar = EntrarFamiliaForm(request.POST)
-            if form_entrar.is_valid():
-                codigo = form_entrar.cleaned_data['codigo_convite'].strip().upper()
-                familiar = Familiar.objects.filter(codigo_convite=codigo, ativo=True).first()
-
-                if not familiar:
-                    messages.error(request, "Código de convite inválido ou familiar inativo.")
-                else:
-                    ja_vinculado = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar).first()
-                    if ja_vinculado:
-                        if ja_vinculado.status == 'APROVADO':
-                            request.session['familiar_ativo_id'] = familiar.id
-                            return redirect('index')
-                        else:
-                            messages.info(request, "Já possui uma solicitação pendente para este familiar.")
-                            return render(request, 'financeiro/pendente.html')
-                    else:
-                        VinculoFamiliar.objects.create(
-                            usuario=request.user,
-                            familiar=familiar,
-                            papel='MEMBRO',
-                            status='PENDENTE'
-                        )
-                        messages.success(request, "Solicitação enviada! Aguarde a aprovação do Gestor.")
-                        return render(request, 'financeiro/pendente.html')
-
-    return render(request, 'financeiro/onboarding.html', {
-        'form_familiar': form_familiar,
-        'form_entrar': form_entrar,
-    })
-
-
-@login_required
-def meus_familiares_view(request):
-    vinculos = VinculoFamiliar.objects.filter(usuario=request.user, status='APROVADO').select_related('familiar')
-
-    if not vinculos.exists():
-        return redirect('onboarding')
-
-    form_familiar = FamiliarForm()
-    form_entrar = EntrarFamiliaForm()
-
-    if request.method == 'POST':
-        if 'criar_familiar' in request.POST:
-            form_familiar = FamiliarForm(request.POST)
-            if form_familiar.is_valid():
-                familiar = form_familiar.save()
-                VinculoFamiliar.objects.create(
-                    usuario=request.user,
-                    familiar=familiar,
-                    papel='GESTOR',
-                    status='APROVADO'
-                )
-                request.session['familiar_ativo_id'] = familiar.id
-                messages.success(request, f"Familiar '{familiar.nome}' cadastrado com sucesso!")
-                return redirect('index')
-
-        elif 'entrar_familia' in request.POST:
-            form_entrar = EntrarFamiliaForm(request.POST)
-            if form_entrar.is_valid():
-                codigo = form_entrar.cleaned_data['codigo_convite'].strip().upper()
-                familiar = Familiar.objects.filter(codigo_convite=codigo, ativo=True).first()
-
-                if not familiar:
-                    messages.error(request, "Código de convite inválido ou familiar arquivado.")
-                else:
-                    ja_vinculado = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar).first()
-                    if ja_vinculado:
-                        if ja_vinculado.status == 'APROVADO':
-                            request.session['familiar_ativo_id'] = familiar.id
-                            return redirect('index')
-                        messages.info(request, "Solicitação pendente para este familiar.")
-                    else:
-                        VinculoFamiliar.objects.create(
-                            usuario=request.user,
-                            familiar=familiar,
-                            papel='MEMBRO',
-                            status='PENDENTE'
-                        )
-                        messages.success(request, "Solicitação enviada ao Gestor com sucesso!")
-                        return redirect('meus_familiares')
-
-    solicitacoes_pendentes = VinculoFamiliar.objects.filter(
-        familiar__vinculos__usuario=request.user,
-        familiar__vinculos__papel='GESTOR',
-        familiar__vinculos__status='APROVADO',
-        status='PENDENTE'
-    ).select_related('usuario', 'familiar').distinct()
-
-    total_solicitacoes_pendentes = solicitacoes_pendentes.count()
-
-    return render(request, 'financeiro/meus_familiares.html', {
-        'vinculos': vinculos,
-        'form_familiar': form_familiar,
-        'form_entrar': form_entrar,
-        'solicitacoes_pendentes': solicitacoes_pendentes,
-        'total_solicitacoes_pendentes': total_solicitacoes_pendentes,
-    })
-
-
-@login_required
-def selecionar_familiar(request, familiar_id):
-    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar_id=familiar_id, status='APROVADO').first()
-    if vinculo:
-        request.session['familiar_ativo_id'] = familiar_id
-    else:
-        messages.error(request, "Não possui acesso a este familiar.")
-    return redirect('index')
-
-
-@login_required
-def index(request):
-    vinculos = VinculoFamiliar.objects.filter(usuario=request.user, status='APROVADO').select_related('familiar')
-    if not vinculos.exists():
-        return redirect('onboarding')
-
-    familiar_id = request.session.get('familiar_ativo_id')
-    vinculo_atual = None
-
-    if familiar_id:
-        vinculo_atual = vinculos.filter(familiar_id=familiar_id).first()
-
-    if not vinculo_atual:
-        vinculo_atual = vinculos.first()
-        request.session['familiar_ativo_id'] = vinculo_atual.familiar.id
-
-    familiar_atual = vinculo_atual.familiar
-    eh_gestor = (vinculo_atual.papel == 'GESTOR')
-
-    hoje = date.today()
-    try:
-        mes_selecionado = int(request.GET.get('mes', hoje.month))
-        ano_selecionado = int(request.GET.get('ano', hoje.year))
-    except (ValueError, TypeError):
-        mes_selecionado = hoje.month
-        ano_selecionado = hoje.year
-
-    fechamento = FechamentoCompetencia.objects.filter(
-        familiar=familiar_atual,
-        ano=ano_selecionado,
-        mes=mes_selecionado
-    ).first()
-    mes_travado = bool(fechamento and fechamento.fechado)
-
-    if request.method == 'POST':
-        if not familiar_atual.ativo:
-            messages.error(request, "Este familiar está arquivado em modo de leitura.")
-            return redirect('index')
-
-        if mes_travado:
-            messages.error(request, "Esta competência está fechada para novas movimentações.")
-            return redirect('index')
-
-        form = TransacaoForm(request.POST, request.FILES, familiar=familiar_atual)
-        if form.is_valid():
-            transacao = form.save(commit=False)
-            transacao.familiar = familiar_atual
-            transacao.criado_por = request.user
-            transacao.save()
-
-            LogAuditoriaTransacao.objects.create(
-                familiar=familiar_atual,
-                transacao_id_ref=transacao.id,
-                usuario=request.user,
-                acao='CRIACAO',
-                detalhes=f"Lançamento '{transacao.descricao}' de R$ {transacao.valor} criado."
-            )
-
-            messages.success(request, "Lançamento adicionado com sucesso!")
-            return redirect(f'/?mes={mes_selecionado}&ano={ano_selecionado}')
-    else:
-        form = TransacaoForm(familiar=familiar_atual)
-
-    transacoes_qs = Transacao.objects.filter(
-        familiar=familiar_atual,
-        data__year=ano_selecionado,
-        data__month=mes_selecionado
-    ).select_related('categoria', 'criado_por')
-
-    total_registros_mes = transacoes_qs.count()
-
-    busca_texto = request.GET.get('q', '').strip()
-    filtro_tipo = request.GET.get('tipo', '').strip()
-    filtro_categoria = request.GET.get('categoria', '').strip()
-    filtro_comprador = request.GET.get('comprador', '').strip()
-    filtro_forma_pgto = request.GET.get('forma_pagamento', '').strip()
-
-    filtros_ativos = bool(busca_texto or filtro_tipo or filtro_categoria or filtro_comprador or filtro_forma_pgto)
-
-    if busca_texto:
-        transacoes_qs = transacoes_qs.filter(
-            Q(descricao__icontains=busca_texto) | Q(observacoes__icontains=busca_texto)
-        )
-    if filtro_tipo:
-        transacoes_qs = transacoes_qs.filter(tipo=filtro_tipo)
-    if filtro_categoria:
-        transacoes_qs = transacoes_qs.filter(categoria_id=filtro_categoria)
-    if filtro_comprador:
-        transacoes_qs = transacoes_qs.filter(comprador__iexact=filtro_comprador)
-    if filtro_forma_pgto:
-        transacoes_qs = transacoes_qs.filter(forma_pagamento=filtro_forma_pgto)
-
-    transacoes = transacoes_qs.order_by('-data', '-criado_em')
-
-    total_entradas = transacoes.filter(tipo='ENTRADA').aggregate(s=Sum('valor'))['s'] or Decimal('0.00')
-    total_saidas = transacoes.filter(tipo='SAIDA').aggregate(s=Sum('valor'))['s'] or Decimal('0.00')
-    saldo = total_entradas - total_saidas
-
-    despesas_por_cat = (
-        transacoes.filter(tipo='SAIDA')
-        .values('categoria__nome')
-        .annotate(total=Sum('valor'))
-        .order_by('-total')
-    )
-    grafico_labels = [item['categoria__nome'] or 'Sem Categoria' for item in despesas_por_cat]
-    grafico_valores = [float(item['total']) for item in despesas_por_cat]
-
-    gastos_por_comprador = (
-        transacoes.filter(tipo='SAIDA')
-        .values('comprador')
-        .annotate(total=Sum('valor'))
-        .order_by('-total')
-    )
-
-    todas_categorias = Categoria.objects.filter(familiar=familiar_atual).order_by('nome')
-    categorias_json = [{'id': c.id, 'nome': c.nome, 'tipo': c.tipo} for c in todas_categorias]
-    compradores_disponiveis = (
-        Transacao.objects.filter(familiar=familiar_atual)
-        .values_list('comprador', flat=True)
-        .distinct()
-        .order_by('comprador')
-    )
-    formas_pagamento_disponiveis = Transacao.FORMAS_PAGAMENTO
-
-    membros_aprovados = VinculoFamiliar.objects.filter(
-        familiar=familiar_atual,
-        status='APROVADO'
-    ).select_related('usuario')
-
-    solicitacoes_pendentes = []
-    total_solicitacoes = 0
-    logs_auditoria = []
-
-    if eh_gestor:
-        solicitacoes_pendentes = VinculoFamiliar.objects.filter(
-            familiar=familiar_atual,
-            status='PENDENTE'
-        ).select_related('usuario')
-        total_solicitacoes = solicitacoes_pendentes.count()
-        logs_auditoria = LogAuditoriaTransacao.objects.filter(
-            familiar=familiar_atual
-        ).select_related('usuario').order_by('-data_hora')[:30]
-
-    meses = [
-        (1, 'Janeiro'), (2, 'Fevereiro'), (3, 'Março'), (4, 'Abril'),
-        (5, 'Maio'), (6, 'Junho'), (7, 'Julho'), (8, 'Agosto'),
-        (9, 'Setembro'), (10, 'Outubro'), (11, 'Novembro'), (12, 'Dezembro')
-    ]
+            else:
+                for erro in form_senha.errors.values():
+                    messages.error(request, erro)
 
     contexto = {
-        'familiar_atual': familiar_atual,
-        'vinculos': vinculos,
-        'eh_gestor': eh_gestor,
-        'form': form,
-        'transacoes': transacoes,
-        'total_registros': transacoes.count(),
-        'total_registros_mes': total_registros_mes,
-        'total_entradas': total_entradas,
-        'total_saidas': total_saidas,
-        'saldo': saldo,
-        'mes_selecionado': mes_selecionado,
-        'ano_selecionado': ano_selecionado,
-        'mes_travado': mes_travado,
-        'meses': meses,
-        'filtros_ativos': filtros_ativos,
-        'busca_texto': busca_texto,
-        'filtro_tipo': filtro_tipo,
-        'filtro_categoria': filtro_categoria,
-        'filtro_comprador': filtro_comprador,
-        'filtro_forma_pgto': filtro_forma_pgto,
-        'todas_categorias': todas_categorias,
-        'categorias_do_familiar': todas_categorias,
-        'categorias_json': categorias_json,
-        'compradores_disponiveis': compradores_disponiveis,
-        'formas_pagamento_disponiveis': formas_pagamento_disponiveis,
-        'grafico_labels': grafico_labels,
-        'grafico_valores': grafico_valores,
-        'gastos_por_comprador': gastos_por_comprador,
-        'membros_aprovados': membros_aprovados,
-        'solicitacoes_pendentes': solicitacoes_pendentes,
-        'total_solicitacoes': total_solicitacoes,
-        'logs_auditoria': logs_auditoria,
+        'form_perfil': form_perfil,
+        'form_senha': form_senha,
+        'perfil': perfil,
     }
-    return render(request, 'financeiro/index.html', contexto)
-
-
-@login_required
-def alternar_fechamento_mes(request, familiar_id, ano, mes):
-    familiar = get_object_or_404(Familiar, id=familiar_id)
-    vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=familiar, papel='GESTOR', status='APROVADO'
-    ).first()
-
-    if not vinculo:
-        messages.error(request, "Apenas gestores podem fechar ou reabrir competências.")
-        return redirect('index')
-
-    fechamento, created = FechamentoCompetencia.objects.get_or_create(
-        familiar=familiar,
-        ano=ano,
-        mes=mes,
-        defaults={'fechado': True, 'fechado_por': request.user}
-    )
-
-    if not created:
-        fechamento.fechado = not fechamento.fechado
-        fechamento.fechado_por = request.user
-        fechamento.save()
-
-    status_str = "fechada" if fechamento.fechado else "reaberta"
-
-    LogAuditoriaTransacao.objects.create(
-        familiar=familiar,
-        transacao_id_ref=0,
-        usuario=request.user,
-        acao='EDICAO',
-        detalhes=f"Competência {mes:02d}/{ano} {status_str} por {request.user.username}."
-    )
-
-    messages.success(request, f"Competência {mes:02d}/{ano} {status_str} com sucesso.")
-    return redirect(f'/?mes={mes}&ano={ano}')
-
+    return render(request, 'financeiro/perfil.html', contexto)
 
 @login_required
-def editar_transacao(request, transacao_id):
-    transacao = get_object_or_404(Transacao, id=transacao_id)
+def detalhes_transacao_excluida_view(request, transacao_id):
+    transacao = get_object_or_404(Transacao, pk=transacao_id)
     familiar = transacao.familiar
-
-    if not familiar.ativo:
-        messages.error(request, "Familiar arquivado em modo de leitura.")
-        return redirect('index')
-
-    vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=familiar, status='APROVADO'
-    ).first()
-    if not vinculo:
-        messages.error(request, "Acesso não permitido.")
-        return redirect('meus_familiares')
-
-    eh_gestor = (vinculo.papel == 'GESTOR')
-    pode_editar = eh_gestor or (transacao.criado_por == request.user)
-
-    if not pode_editar:
-        messages.error(request, "Permissão negada para editar este lançamento.")
-        return redirect('index')
-
-    fechamento = FechamentoCompetencia.objects.filter(
-        familiar=familiar, ano=transacao.data.year, mes=transacao.data.month, fechado=True
-    ).exists()
-    if fechamento:
-        messages.error(request, "A competência referente a este lançamento está fechada.")
-        return redirect('index')
-
-    if request.method == 'POST':
-        form = TransacaoForm(request.POST, request.FILES, instance=transacao, familiar=familiar)
-        if form.is_valid():
-            form.save()
-            LogAuditoriaTransacao.objects.create(
-                familiar=familiar,
-                transacao_id_ref=transacao.id,
-                usuario=request.user,
-                acao='EDICAO',
-                detalhes=f"Lançamento '{transacao.descricao}' atualizado."
-            )
-            messages.success(request, "Lançamento atualizado com sucesso!")
-            return redirect(f'/?mes={transacao.data.month}&ano={transacao.data.year}')
-    else:
-        form = TransacaoForm(instance=transacao, familiar=familiar)
-
-    return render(request, 'financeiro/editar_transacao.html', {
-        'form': form,
-        'transacao': transacao,
-        'familiar': familiar,
-    })
-
-
-@login_required
-def excluir_transacao(request, transacao_id):
-    transacao = get_object_or_404(Transacao, id=transacao_id)
-    familiar = transacao.familiar
-
-    if not familiar.ativo:
-        messages.error(request, "Familiar arquivado em modo de leitura.")
-        return redirect('index')
-
-    vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=familiar, status='APROVADO'
-    ).first()
-    if not vinculo:
-        messages.error(request, "Acesso não permitido.")
-        return redirect('meus_familiares')
-
-    eh_gestor = (vinculo.papel == 'GESTOR')
-    pode_excluir = eh_gestor or (transacao.criado_por == request.user)
-
-    if not pode_excluir:
-        messages.error(request, "Permissão negada para excluir este lançamento.")
-        return redirect('index')
-
-    fechamento = FechamentoCompetencia.objects.filter(
-        familiar=familiar, ano=transacao.data.year, mes=transacao.data.month, fechado=True
-    ).exists()
-    if fechamento:
-        messages.error(request, "A competência referente a este lançamento está fechada.")
-        return redirect('index')
-
-    descricao = transacao.descricao
-    valor = transacao.valor
-    mes = transacao.data.month
-    ano = transacao.data.year
-
-    LogAuditoriaTransacao.objects.create(
-        familiar=familiar,
-        transacao_id_ref=transacao.id,
-        usuario=request.user,
-        acao='EXCLUSAO',
-        detalhes=f"Lançamento '{descricao}' de R$ {valor} excluído."
-    )
-    transacao.delete()
-
-    messages.success(request, f"Lançamento '{descricao}' removido com sucesso!")
-    return redirect(f'/?mes={mes}&ano={ano}')
-
-
-@login_required
-def criar_categoria(request, familiar_id):
-    familiar = get_object_or_404(Familiar, id=familiar_id)
-    vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=familiar, papel='GESTOR', status='APROVADO'
-    ).first()
-
-    if not vinculo or not familiar.ativo:
-        messages.error(request, "Ação não permitida.")
-        return redirect('index')
-
-    if request.method == 'POST':
-        nome = request.POST.get('nome', '').strip()
-        tipo = request.POST.get('tipo', 'SAIDA').strip()
-        if nome:
-            Categoria.objects.get_or_create(familiar=familiar, nome=nome, defaults={'tipo': tipo})
-            messages.success(request, f"Categoria '{nome}' criada com sucesso!")
-
-    return redirect('index')
-
-
-@login_required
-def excluir_categoria(request, categoria_id):
-    categoria = get_object_or_404(Categoria, id=categoria_id)
-    vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=categoria.familiar, papel='GESTOR', status='APROVADO'
-    ).first()
-
-    if not vinculo or not categoria.familiar.ativo:
-        messages.error(request, "Ação não permitida.")
-        return redirect('index')
-
-    nome = categoria.nome
-    categoria.delete()
-    messages.success(request, f"Categoria '{nome}' removida!")
-    return redirect('index')
-
-
-@login_required
-def responder_solicitacao(request, vinculo_id, acao):
-    vinculo = get_object_or_404(VinculoFamiliar, id=vinculo_id, status='PENDENTE')
-    gestor_vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=vinculo.familiar, papel='GESTOR', status='APROVADO'
-    ).first()
-
-    if not gestor_vinculo:
-        messages.error(request, "Apenas gestores podem aprovar ou recusar solicitações.")
-        return redirect('index')
-
-    if acao == 'aprovar':
-        vinculo.status = 'APROVADO'
-        vinculo.save()
-        messages.success(request, f"Acesso de {vinculo.usuario.username} aprovado!")
-    elif acao == 'recusar':
-        vinculo.delete()
-        messages.info(request, "Solicitação recusada.")
-
-    referer = request.META.get('HTTP_REFERER', '')
-    if 'meus-familiares' in referer:
-        return redirect('meus_familiares')
-
-    return redirect('index')
-
-
-@login_required
-def alterar_papel_membro(request, vinculo_id, papel):
-    vinculo = get_object_or_404(VinculoFamiliar, id=vinculo_id, status='APROVADO')
-    gestor_vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=vinculo.familiar, papel='GESTOR', status='APROVADO'
-    ).first()
-
-    if not gestor_vinculo or not vinculo.familiar.ativo:
-        messages.error(request, "Ação não permitida.")
-        return redirect('index')
-
-    if papel in ['GESTOR', 'MEMBRO']:
-        vinculo.papel = papel
-        vinculo.save()
-        messages.success(request, f"Papel de {vinculo.usuario.username} alterado para {papel}.")
-
-    return redirect('index')
-
-
-@login_required
-def remover_membro(request, vinculo_id):
-    vinculo = get_object_or_404(VinculoFamiliar, id=vinculo_id)
-    gestor_vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=vinculo.familiar, papel='GESTOR', status='APROVADO'
-    ).first()
-
-    if not gestor_vinculo or vinculo.usuario == request.user:
-        messages.error(request, "Ação não permitida.")
-        return redirect('index')
-
-    nome_usuario = vinculo.usuario.username
-    vinculo.delete()
-    messages.success(request, f"Acesso de {nome_usuario} revogado com sucesso.")
-    return redirect('index')
-
-
-@login_required
-def alternar_arquivamento_familiar(request, familiar_id):
-    familiar = get_object_or_404(Familiar, id=familiar_id)
-    vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=familiar, papel='GESTOR', status='APROVADO'
-    ).first()
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
 
     if not vinculo:
-        messages.error(request, "Apenas gestores podem arquivar ou reativar familiares.")
-        return redirect('meus_familiares')
+        return JsonResponse({'erro': 'Acesso não autorizado.'}, status=403)
 
-    familiar.ativo = not familiar.ativo
-    familiar.save()
-    status_str = "reativado" if familiar.ativo else "arquivado em modo de leitura"
-    messages.success(request, f"Familiar '{familiar.nome}' {status_str}.")
-
-    referer = request.META.get('HTTP_REFERER', '')
-    if 'meus-familiares' in referer:
-        return redirect('meus_familiares')
-    return redirect('index')
-
-
-@login_required
-def sair_da_familia(request, familiar_id):
-    vinculo = get_object_or_404(VinculoFamiliar, usuario=request.user, familiar_id=familiar_id)
-    familiar_nome = vinculo.familiar.nome
-    vinculo.delete()
-
-    if request.session.get('familiar_ativo_id') == familiar_id:
-        request.session.pop('familiar_ativo_id', None)
-
-    messages.success(request, f"Saiu do grupo familiar '{familiar_nome}'.")
-    return redirect('meus_familiares')
-
-
-@login_required
-def excluir_familiar_definitivo(request, familiar_id):
-    familiar = get_object_or_404(Familiar, id=familiar_id)
-    vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=familiar, papel='GESTOR', status='APROVADO'
-    ).first()
-
-    if not vinculo:
-        messages.error(request, "Apenas gestores podem excluir permanentemente um familiar.")
-        return redirect('meus_familiares')
-
-    nome = familiar.nome
-    familiar.delete()
-
-    if request.session.get('familiar_ativo_id') == familiar_id:
-        request.session.pop('familiar_ativo_id', None)
-
-    messages.success(request, f"Familiar '{nome}' e todos os seus lançamentos foram excluídos definitivamente.")
-    return redirect('meus_familiares')
-
-
-@login_required
-def exportar_csv(request, familiar_id):
-    familiar = get_object_or_404(Familiar, id=familiar_id)
-    vinculo = VinculoFamiliar.objects.filter(
-        usuario=request.user, familiar=familiar, status='APROVADO'
-    ).first()
-
-    if not vinculo:
-        messages.error(request, "Acesso não permitido.")
-        return redirect('meus_familiares')
-
-    hoje = date.today()
-    try:
-        mes = int(request.GET.get('mes', hoje.month))
-        ano = int(request.GET.get('ano', hoje.year))
-    except (ValueError, TypeError):
-        mes = hoje.month
-        ano = hoje.year
-
-    transacoes = Transacao.objects.filter(
-        familiar=familiar, data__year=ano, data__month=mes
-    ).select_related('categoria', 'criado_por')
-
-    q = request.GET.get('q', '').strip()
-    tipo = request.GET.get('tipo', '').strip()
-    categoria = request.GET.get('categoria', '').strip()
-    comprador = request.GET.get('comprador', '').strip()
-    forma_pgto = request.GET.get('forma_pagamento', '').strip()
-
-    if q:
-        transacoes = transacoes.filter(Q(descricao__icontains=q) | Q(observacoes__icontains=q))
-    if tipo:
-        transacoes = transacoes.filter(tipo=tipo)
-    if categoria:
-        transacoes = transacoes.filter(categoria_id=categoria)
-    if comprador:
-        transacoes = transacoes.filter(comprador__iexact=comprador)
-    if forma_pgto:
-        transacoes = transacoes.filter(forma_pagamento=forma_pgto)
-
-    transacoes = transacoes.order_by('data')
-
-    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-    response['Content-Disposition'] = f'attachment; filename="extrato_{familiar.nome}_{mes:02d}_{ano}.csv"'
-
-    writer = csv.writer(response, delimiter=';')
-    writer.writerow(['Data', 'Tipo', 'Descrição', 'Categoria', 'Comprador', 'Forma Pagamento', 'Valor (R$)', 'Observações'])
-
-    for t in transacoes:
-        writer.writerow([
-            t.data.strftime('%d/%m/%Y'),
-            t.get_tipo_display(),
-            t.descricao,
-            t.categoria.nome if t.categoria else 'Geral',
-            t.comprador,
-            t.get_forma_pagamento_display(),
-            f"{t.valor:.2f}".replace('.', ','),
-            t.observacoes or '',
-        ])
-
-    return response
+    dados = {
+        'id': transacao.id,
+        'descricao': transacao.descricao,
+        'valor': f"{transacao.valor:.2f}".replace('.', ','),
+        'tipo': transacao.get_tipo_display(),
+        'tipo_raw': transacao.tipo,
+        'data': transacao.data.strftime('%d/%m/%Y'),
+        'categoria': transacao.categoria.nome if transacao.categoria else 'Sem Categoria',
+        'comprador': transacao.comprador or 'Não informado',
+        'forma_pagamento': transacao.get_forma_pagamento_display(),
+        'observacoes': transacao.observacoes or 'Nenhuma observação informada.',
+        'usuario': transacao.usuario.first_name or transacao.usuario.username,
+        'comprovante_url': transacao.comprovante.url if hasattr(transacao, 'comprovante') and transacao.comprovante else None,
+        'url_restaurar': f"/transacao/{transacao.id}/restaurar/",
+    }
+    return JsonResponse(dados)

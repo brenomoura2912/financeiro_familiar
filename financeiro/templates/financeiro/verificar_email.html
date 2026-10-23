@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-br" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar E-mail - Gestão Financeira Familiar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>tailwind.config = { darkMode: 'class' }</script>
+</head>
+<body class="bg-slate-100 dark:bg-[#0b1329] text-slate-800 dark:text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md bg-white dark:bg-[#16203a] rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700/60 p-6 sm:p-8">
+        <div class="text-center mb-6">
+            <div class="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mx-auto mb-3 text-xl border border-indigo-200 dark:border-indigo-800">
+                <i class="fas fa-envelope-open-text"></i>
+            </div>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Verifique o seu E-mail</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Introduza o código de 6 dígitos enviado para <br><strong class="text-slate-700 dark:text-slate-200">{{ email }}</strong>
+            </p>
+        </div>
+
+        {% if messages %}
+            <div class="space-y-2 mb-4">
+                {% for message in messages %}
+                    <div class="px-3.5 py-2.5 rounded-xl text-xs font-medium border {% if message.tags == 'error' %}bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-200 dark:border-rose-900{% else %}bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-200 dark:border-emerald-900{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <input 
+                    type="text" 
+                    name="codigo" 
+                    maxlength="6" 
+                    placeholder="000000" 
+                    required 
+                    autocomplete="one-time-code"
+                    class="w-full text-center text-2xl font-mono font-bold tracking-[0.4em] py-3 bg-slate-50 dark:bg-[#0b1329] border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner"
+                >
+            </div>
+
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs sm:text-sm py-2.5 rounded-xl transition shadow-md shadow-indigo-600/20">
+                Validar e Ativar Conta
+            </button>
+        </form>
+
+        <div class="mt-5 text-center">
+            <a href="{% url 'reenviar_codigo_email' %}" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+                Não recebeu o código? Reenviar
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>
