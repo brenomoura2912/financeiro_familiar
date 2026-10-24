@@ -173,6 +173,227 @@ class CadastroForm(forms.ModelForm):
 
 class EditarPerfilForm(forms.ModelForm):
     nome_completo = forms.CharField(
+        label="Nome Completo",
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    username = forms.CharField(
+        label="Nome de Usuário",
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    email = forms.EmailField(
+        label="E-mail",
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    foto = forms.ImageField(
+        label="Foto de Perfil",
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-slate-700 dark:file:text-slate-200 cursor-pointer'
+        })
+    )
+
+    class Meta:
+        model = User
+        # Removemos 'email' daqui para impedir que o Django salve direto no banco
+        fields = ['username']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            nome_existente = self.instance.get_full_name().strip() or self.instance.first_name
+            self.fields['nome_completo'].initial = nome_existente
+            self.fields['email'].initial = self.instance.email
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username', '').strip()
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este nome de usuário já está em uso por outra conta.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este e-mail já está cadastrado em outra conta.")
+        return email
+
+    def save(self, commit=True):
+        nome_completo = self.cleaned_data.get('nome_completo', '').strip()
+        user = super().save(commit=False)
+        
+        partes_nome = nome_completo.split(' ', 1)
+        user.first_name = partes_nome[0]
+        user.last_name = partes_nome[1] if len(partes_nome) > 1 else ''
+
+        # GARANTIA: O e-mail nunca é salvo aqui. Fica travado no original da instância.
+        user.email = self.instance.email
+
+        if commit:
+            user.save()
+
+        foto = self.cleaned_data.get('foto')
+        if foto and hasattr(user, 'perfil'):
+            perfil = user.perfil
+            perfil.foto = foto
+            perfil.save()
+
+        return user
+        nome_completo = forms.CharField(
+        label="Nome Completo",
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    username = forms.CharField(
+        label="Nome de Usuário",
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    email = forms.EmailField(
+        label="E-mail",
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    foto = forms.ImageField(
+        label="Foto de Perfil",
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-slate-700 dark:file:text-slate-200 cursor-pointer'
+        })
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            nome_existente = self.instance.get_full_name().strip() or self.instance.first_name
+            self.fields['nome_completo'].initial = nome_existente
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username', '').strip()
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este nome de usuário já está em uso por outra conta.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este e-mail já está cadastrado em outra conta.")
+        return email
+
+    def save(self, commit=True):
+        email_digitado = self.cleaned_data.get('email', '').strip().lower()
+        email_antigo = self.instance.email
+        nome_completo = self.cleaned_data.get('nome_completo', '').strip()
+
+        user = super().save(commit=False)
+        
+        # Divide o nome completo entre first_name e last_name
+        partes_nome = nome_completo.split(' ', 1)
+        user.first_name = partes_nome[0]
+        user.last_name = partes_nome[1] if len(partes_nome) > 1 else ''
+
+        # Mantém o e-mail original se tiver sido digitado um novo (aguarda confirmação por código)
+        if email_digitado != email_antigo:
+            user.email = email_antigo
+
+        if commit:
+            user.save()
+
+        foto = self.cleaned_data.get('foto')
+        if foto and hasattr(user, 'perfil'):
+            perfil = user.perfil
+            perfil.foto = foto
+            perfil.save()
+
+        return user
+        first_name = forms.CharField(
+        label="Nome Completo",
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    username = forms.CharField(
+        label="Nome de Usuário",
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    email = forms.EmailField(
+        label="E-mail",
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    foto = forms.ImageField(
+        label="Foto de Perfil",
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-slate-700 dark:file:text-slate-200 cursor-pointer'
+        })
+    )
+
+    class Meta:
+        model = User
+        fields = ['first_name', 'username', 'email']
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username', '').strip()
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este nome de usuário já está em uso por outra conta.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este e-mail já está cadastrado em outra conta.")
+        return email
+
+    def save(self, commit=True):
+        # Impede a gravação direta do email se tiver mudado
+        email_digitado = self.cleaned_data.get('email', '').strip().lower()
+        email_antigo = self.instance.email
+
+        user = super().save(commit=False)
+        if email_digitado != email_antigo:
+            user.email = email_antigo  # Mantém o e-mail atual até ser confirmado
+
+        if commit:
+            user.save()
+
+        foto = self.cleaned_data.get('foto')
+        if foto:
+            perfil = user.perfil
+            perfil.foto = foto
+            perfil.save()
+
+        return user  
+        nome_completo = forms.CharField(
         max_length=150,
         required=True,
         widget=forms.TextInput(attrs={

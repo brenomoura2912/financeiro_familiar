@@ -49,56 +49,89 @@
     </div>
   </div>
 
-  <!-- Navbar -->
-  <nav class="bg-indigo-900 dark:bg-slate-950 text-white px-3 sm:px-6 h-14 shadow-md border-b border-indigo-950 dark:border-slate-800 flex items-center">
+  <!-- Navbar / Barra Superior Padronizada -->
+  <!-- Navbar / Barra Superior Padronizada (Dashboard) -->
+  <nav class="bg-[#3b3dbf] dark:bg-[#161730] text-white px-3 sm:px-6 h-14 shadow-md border-b border-indigo-700/40 dark:border-slate-800 flex items-center relative z-40 transition-colors duration-200">
     <div class="max-w-6xl w-full mx-auto flex items-center justify-between gap-2">
-      <div class="flex items-center gap-2 min-w-0">
-        <a href="{% url 'meus_familiares' %}" title="Voltar aos Meus Familiares" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-800/80 dark:bg-slate-800 hover:bg-indigo-700 dark:hover:bg-slate-700 text-white border border-indigo-700/60 dark:border-slate-700 transition shrink-0">
-          <span class="text-sm font-bold">←</span>
+      
+      <!-- Lado Esquerdo: Voltar + Nome + Badge -->
+      <div class="flex items-center gap-2.5 min-w-0">
+        <a href="{% url 'meus_familiares' %}" title="Voltar aos Meus Familiares" class="w-9 h-9 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white active:scale-95 transition shadow-sm shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
         </a>
         <div class="flex items-center gap-2 truncate">
           <span class="text-xs sm:text-sm font-bold truncate text-white leading-none">{{ familiar_atual.nome }}</span>
-          <span class="text-[9px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full shrink-0 {% if eh_gestor %}bg-emerald-500 text-white{% else %}bg-indigo-800 text-indigo-200 dark:bg-slate-800 dark:text-slate-300{% endif %}">
+          <span class="text-[9px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full shrink-0 {% if eh_gestor %}bg-emerald-400 text-slate-900 shadow-sm{% else %}bg-indigo-400/30 text-indigo-100 border border-indigo-300/30{% endif %}">
             {% if eh_gestor %}GESTOR{% else %}MEMBRO{% endif %}
           </span>
         </div>
       </div>
 
-      <div class="flex items-center gap-1.5 shrink-0">
+      <!-- Lado Direito: Ações com Ícones Padronizados -->
+      <div class="flex items-center gap-2 shrink-0">
         {% if eh_gestor %}
-          <!-- Botão da Lixeira com Contador Dinâmico -->
+          <!-- 1. Botão da Lixeira com Contador Dinâmico -->
           <button type="button" 
                   id="btn-abrir-lixeira"
                   onclick="abrirLixeiraGestor()" 
                   title="Lixeira de Lançamentos Excluídos" 
-                  class="relative w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-800/80 dark:bg-slate-800 hover:bg-indigo-700 dark:hover:bg-slate-700 border border-indigo-700/60 dark:border-slate-700 text-xs transition">
-            🗑️
+                  class="relative w-9 h-9 flex items-center justify-center rounded-2xl bg-white/15 hover:bg-white/25 text-white active:scale-95 transition shadow-sm focus:outline-none">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
             {% if transacoes_excluidas|length > 0 %}
-              <span id="badge-contador-lixeira" class="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300">
+              <span id="badge-contador-lixeira" class="absolute -top-1 -right-1 bg-amber-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ring-2 ring-[#3b3dbf] dark:ring-[#161730]">
                 {{ transacoes_excluidas|length }}
               </span>
             {% endif %}
           </button>
 
-          <button type="button" onclick="document.getElementById('modal-membros').classList.remove('hidden')" title="Gestão de Membros" class="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-800/80 dark:bg-slate-800 hover:bg-indigo-700 dark:hover:bg-slate-700 border border-indigo-700/60 dark:border-slate-700 text-xs transition">
-            👥
+          <!-- 2. Botão Gestão de Membros -->
+          <button type="button" 
+                  onclick="document.getElementById('modal-membros').classList.remove('hidden')" 
+                  title="Gestão de Membros" 
+                  class="w-9 h-9 flex items-center justify-center rounded-2xl bg-white/15 hover:bg-white/25 text-white active:scale-95 transition shadow-sm focus:outline-none">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
           </button>
-          <button type="button" onclick="document.getElementById('modal-auditoria').classList.remove('hidden')" title="Histórico de Auditoria" class="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-800/80 dark:bg-slate-800 hover:bg-indigo-700 dark:hover:bg-slate-700 border border-indigo-700/60 dark:border-slate-700 text-xs transition">
-            📜
+
+          <!-- 3. Botão Trilha de Auditoria -->
+          <button type="button" 
+                  onclick="document.getElementById('modal-auditoria').classList.remove('hidden')" 
+                  title="Histórico de Auditoria" 
+                  class="w-9 h-9 flex items-center justify-center rounded-2xl bg-white/15 hover:bg-white/25 text-white active:scale-95 transition shadow-sm focus:outline-none">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
           </button>
         {% endif %}
 
-        <button type="button" onclick="alternarTema()" title="Alternar Tema Claro/Escuro" class="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-800/80 dark:bg-slate-800 hover:bg-indigo-700 dark:hover:bg-slate-700 border border-indigo-700/60 dark:border-slate-700 text-xs transition">
-          <span id="icone-sol" class="hidden">☀️</span>
-          <span id="icone-lua" class="hidden">🌙</span>
+        <!-- 4. Alternador de Tema Claro / Escuro -->
+        <button type="button" 
+                onclick="alternarTema()" 
+                title="Alternar Tema Claro/Escuro" 
+                class="w-9 h-9 flex items-center justify-center rounded-2xl bg-white/15 hover:bg-white/25 text-white active:scale-95 transition shadow-sm focus:outline-none">
+          <svg id="icone-sol" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <svg id="icone-lua" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
         </button>
 
-        <div class="relative dropdown-container">
-          <button id="btn-perfil-index" type="button" title="Conta de utilizador" class="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-indigo-700 dark:bg-slate-800 text-white font-bold text-xs border border-indigo-400/40 dark:border-slate-700 shadow-sm transition hover:ring-2 hover:ring-indigo-400 active:scale-95">
+        <!-- 5. Avatar do Perfil com Dropdown -->
+        <div class="relative dropdown-container ml-1">
+          <button id="btn-perfil-index" 
+                  type="button" 
+                  title="Conta de utilizador" 
+                  class="w-9 h-9 rounded-2xl bg-white/25 hover:bg-white/35 text-white flex items-center justify-center font-bold text-xs tracking-wider shadow-sm transition active:scale-95 overflow-hidden focus:outline-none ring-1 ring-white/20">
             {% if request.user.perfil.foto %}
               <img src="{{ request.user.perfil.foto.url }}" alt="{{ request.user.username }}" class="w-full h-full object-cover">
             {% else %}
-              <span>{{ request.user.perfil.iniciais }}</span>
+              <span>{{ request.user.first_name|default:request.user.username|make_list|first|upper }}</span>
             {% endif %}
           </button>
 
@@ -109,25 +142,28 @@
             </div>
             <div class="space-y-0.5">
               <a href="{% url 'perfil' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-medium transition">
-                <span>👤</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                 <span>Editar Perfil</span>
               </a>
-              <a href="{% url 'logout' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium transition">
-                <span>🚪</span>
-                <span>Encerrar Sessão</span>
-              </a>
+              <form method="post" action="{% url 'logout' %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium transition">
+                  <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                  <span>Encerrar Sessão</span>
+                </button>
+              </form>
             </div>
           </div>
         </div>
+
       </div>
     </div>
   </nav>
 
   <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
 
-    <!-- Barra de Período Compacta em Linha Única -->
-    <header class="bg-white dark:bg-slate-800 p-2 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-nowrap items-center justify-between gap-3 overflow-x-auto">
-      
+    <!-- Barra de Filtros e Exportações -->
+    <div class="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-wrap items-center justify-between gap-3">
       <!-- Lado Esquerdo: Filtro de Mês e Ano -->
       <form method="get" class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <span class="text-sm select-none" title="Período">📅</span>
@@ -164,8 +200,7 @@
           <span>PDF</span>
         </a>
       </div>
-
-    </header>
+    </div>
 
     <!-- Cards de Totais -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
@@ -376,7 +411,10 @@
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 space-y-4 text-slate-800 dark:text-slate-100">
       <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2">
         <h3 class="text-base font-bold flex items-center gap-2">
-          <span>🗑️</span> Lixeira de Lançamentos
+          <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>Lixeira de Lançamentos</span>
         </h3>
         <button type="button" onclick="fecharLixeiraGestor()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg">✕</button>
       </div>
@@ -391,7 +429,8 @@
              data-url="{% url 'detalhes_transacao_excluida' t.id %}"
              onclick="carregarDetalhesExcluida(this.dataset.url)">
 
-         <div class="min-w-0"><p class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate transition-colors">
+         <div class="min-w-0">
+            <p class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate transition-colors">
               {{ t.descricao }}
             </p>
             <p class="text-[11px] text-slate-400">
@@ -429,7 +468,6 @@
         <button type="button" onclick="document.getElementById('modal-detalhes-excluida').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
       </div>
 
-      <!-- Informações Carregadas Dinamicamente via JSON -->
       <div class="space-y-2.5 text-xs">
         <div class="flex justify-between border-b dark:border-slate-700/60 pb-1.5">
           <span class="text-slate-400">Descrição:</span>
@@ -470,12 +508,12 @@
 
         <div id="container-comprovante" class="hidden pt-1">
           <a id="detalhe-comprovante-link" href="#" target="_blank" class="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1.5">
-            <span>📎</span> Ver Comprovante Anexo
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+            <span>Ver Comprovante Anexo</span>
           </a>
         </div>
       </div>
 
-      <!-- Ações do Gestor -->
       <div class="flex items-center gap-2 pt-3 border-t dark:border-slate-700">
         <button type="button" 
                 onclick="document.getElementById('modal-detalhes-excluida').classList.add('hidden')" 
@@ -485,17 +523,22 @@
         <a id="btn-confirmar-restauracao" 
            href="#" 
            class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-semibold transition shadow-sm text-center flex items-center justify-center gap-1.5 active:scale-95">
-          <span>🔄</span> Restaurar ao Extrato
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          <span>Restaurar ao Extrato</span>
         </a>
       </div>
 
     </div>
   </div>
 
+  <!-- Modal 3: Auditoria -->
   <div id="modal-auditoria" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-xl w-full p-6 space-y-4 text-slate-800 dark:text-slate-100">
       <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2">
-        <h3 class="text-base font-bold">📜 Trilha de Auditoria Recente</h3>
+        <h3 class="text-base font-bold flex items-center gap-2">
+          <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <span>Trilha de Auditoria Recente</span>
+        </h3>
         <button type="button" onclick="document.getElementById('modal-auditoria').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg">✕</button>
       </div>
       <div class="max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
@@ -514,14 +557,18 @@
         <p class="text-xs text-slate-400 text-center py-6">Nenhum evento registrado ainda.</p>
         {% endfor %}
       </div>
-      <button type="button" onclick="document.getElementById('modal-auditoria').classList.add('hidden')" class="w-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 py-2 rounded-xl text-xs font-semibold">Fechar</button>
+      <button type="button" onclick="document.getElementById('modal-auditoria').classList.add('hidden')" class="w-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl text-xs font-semibold">Fechar</button>
     </div>
   </div>
 
+  <!-- Modal 4: Membros -->
   <div id="modal-membros" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 space-y-5 text-slate-800 dark:text-slate-100">
       <div class="flex justify-between items-center border-b dark:border-slate-700 pb-3">
-        <h3 class="text-base font-bold">Gestão do Grupo Familiar</h3>
+        <h3 class="text-base font-bold flex items-center gap-2">
+          <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+          <span>Gestão do Grupo Familiar</span>
+        </h3>
         <button type="button" onclick="document.getElementById('modal-membros').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg">✕</button>
       </div>
 
@@ -531,7 +578,7 @@
             <span>Código de Convite:</span>
             <div class="flex items-center gap-2 font-mono">
               <strong class="bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-indigo-300 dark:border-indigo-700 select-all tracking-wider text-indigo-600 dark:text-indigo-400 font-bold">{{ familiar_atual.codigo_convite }}</strong>
-              <button type="button" onclick="copiarTextoIndex('{{ familiar_atual.codigo_convite }}', this)" title="Copiar Código" class="p-1 rounded-md text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-slate-800 transition active:scale-95">
+              <button type="button" onclick="copiarTextoIndex('{{ familiar_atual.codigo_convite }}', this)" title="Copiar Código" class="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-slate-800 transition active:scale-95">
                 <svg class="w-4 h-4 icone-copiar-modal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
@@ -617,7 +664,7 @@
       </div>
 
       <div class="pt-2">
-        <button type="button" onclick="document.getElementById('modal-gerir-categorias').classList.add('hidden')" class="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 py-2 rounded-lg text-xs font-semibold transition">
+        <button type="button" onclick="document.getElementById('modal-gerir-categorias').classList.add('hidden')" class="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition">
           Fechar
         </button>
       </div>
@@ -629,14 +676,20 @@
   {{ chart_values_json|json_script:"grafico-valores-data" }}
   {{ chart_colors_json|json_script:"grafico-colors-data" }}
 
+  <!-- Scripts Interativos -->
   <script>
     function atualizarIconeTema() {
       const isDark = document.documentElement.classList.contains('dark');
       const sol = document.getElementById('icone-sol');
       const lua = document.getElementById('icone-lua');
       if (sol && lua) {
-        if (isDark) { sol.classList.remove('hidden'); lua.classList.add('hidden'); }
-        else { sol.classList.add('hidden'); lua.classList.remove('hidden'); }
+        if (isDark) { 
+          sol.classList.remove('hidden'); 
+          lua.classList.add('hidden'); 
+        } else { 
+          sol.classList.add('hidden'); 
+          lua.classList.remove('hidden'); 
+        }
       }
     }
 
@@ -827,7 +880,11 @@
       }
     });
 
-    function fecharToast(el) { if (!el) return; el.classList.add('opacity-0', 'translate-x-full'); setTimeout(() => el.remove(), 400); }
+    function fecharToast(el) { 
+      if (!el) return; 
+      el.classList.add('opacity-0', 'translate-x-full'); 
+      setTimeout(() => el.remove(), 400); 
+    }
   </script>
 </body>
 </html>

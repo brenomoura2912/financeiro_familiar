@@ -20,4 +20,6 @@ urlpatterns = [
     path('transacao/<int:transacao_id>/restaurar/', views.restaurar_transacao_view, name='restaurar_transacao'),
     path('perfil/', views.perfil_view, name='perfil'),
     path('transacao/<int:transacao_id>/detalhes-excluida/', views.detalhes_transacao_excluida_view, name='detalhes_transacao_excluida'),
+    path('perfil/confirmar-novo-email/', views.confirmar_novo_email_view, name='confirmar_novo_email'),
+    path('perfil/reenviar-codigo-novo-email/', views.reenviar_codigo_novo_email_view, name='reenviar_codigo_novo_email'),
 ]
