@@ -26,10 +26,8 @@
         <span class="font-bold tracking-tight text-white text-base">Gestão Financeira</span>
       </a>
 
-      <!-- Lado Direito: Ícones agrupados corretamente -->
       <div class="flex items-center gap-3">
         
-        <!-- Notificações (Botão + Dropdown no mesmo container relative) -->
         <div class="relative">
           <button type="button" 
                   id="notifications-btn"
@@ -94,7 +92,6 @@
           </div>
         </div>
 
-        <!-- Botão Alternar Tema -->
         <button type="button"
                 onclick="toggleTheme()"
                 id="theme-toggle-btn"
@@ -108,7 +105,6 @@
           </svg>
         </button>
 
-        <!-- Menu do Usuário -->
         <div class="relative">
           <button type="button"
                   id="user-menu-btn"
@@ -133,7 +129,7 @@
               {% csrf_token %}
               <button type="submit" class="w-full text-left flex items-center gap-2 px-4 py-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer">
                 <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                Terminar Sessão
+                Sair
               </button>
             </form>
           </div>
@@ -193,7 +189,7 @@
               </div>
 
               <a href="{% url 'dashboard' item.familiar.id %}" class="w-full text-center py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md active:scale-95 transition flex items-center justify-center gap-1.5">
-                Aceder à Gestão
+                Acessar
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
               </a>
             </div>
@@ -201,7 +197,7 @@
         </div>
       {% else %}
         <div class="text-center py-8 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl text-slate-400 text-xs">
-          Ainda não acompanha nenhum familiar. Registe um novo ou utilize um código de convite abaixo.
+          Ainda não acompanha nenhum familiar. Registre um novo ou utilize um código de convite abaixo.
         </div>
       {% endif %}
     </section>
@@ -210,8 +206,8 @@
 
       <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md flex flex-col justify-between">
         <div>
-          <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Registar Novo Familiar</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Será o Gestor com controlo total sobre este acompanhamento.</p>
+          <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Registrar Novo Familiar</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Será o Gestor com controle total sobre este acompanhamento.</p>
 
           <form method="post" class="space-y-3">
             {% csrf_token %}
@@ -225,7 +221,7 @@
                      class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100 transition">
             </div>
             <button type="submit" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md active:scale-95 transition cursor-pointer">
-              Registar e Tornar-se Gestor
+              Registrar e Tornar-se Gestor
             </button>
           </form>
         </div>
@@ -234,7 +230,7 @@
       <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md flex flex-col justify-between">
         <div>
           <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Entrar numa Família Existente</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Introduza o código partilhado pelo gestor responsável.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Introduza o código compartilhado pelo gestor responsável.</p>
 
           <form method="post" class="space-y-3">
             {% csrf_token %}
