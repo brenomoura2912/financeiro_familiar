@@ -26,8 +26,10 @@
         <span class="font-bold tracking-tight text-white text-base">Gestão Financeira</span>
       </a>
 
+      <!-- Lado Direito: Ícones agrupados corretamente -->
       <div class="flex items-center gap-3">
         
+        <!-- Notificações (Botão + Dropdown no mesmo container relative) -->
         <div class="relative">
           <button type="button" 
                   id="notifications-btn"
@@ -43,10 +45,9 @@
           </button>
 
           <div id="notifications-dropdown"
-               class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-3 z-50 text-xs text-slate-800 dark:text-slate-100">
-            
+               class="hidden absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-3 z-50">            
             <div class="px-4 pb-2 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-              <span class="font-bold">Solicitações de Acesso</span>
+              <span class="font-bold text-slate-800 dark:text-white text-xs">Solicitações de Acesso</span>
               <span class="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-400 font-semibold px-2 py-0.5 rounded-full">
                 {{ total_pendentes|default:"0" }} pendente{{ total_pendentes|pluralize }}
               </span>
@@ -56,7 +57,7 @@
               {% if solicitacoes_pendentes %}
                 {% for sol in solicitacoes_pendentes %}
                   <div class="py-2.5 px-2">
-                    <p class="text-xs font-medium">
+                    <p class="text-xs font-medium text-slate-700 dark:text-slate-200">
                       <span class="font-bold text-indigo-600 dark:text-indigo-400">@{{ sol.usuario.username }}</span> 
                       quer entrar em 
                       <span class="font-semibold">{{ sol.familiar.nome }}</span>
@@ -86,7 +87,7 @@
                   </div>
                 {% endfor %}
               {% else %}
-                <div class="py-6 text-center text-slate-400">
+                <div class="py-6 text-center text-slate-400 text-xs">
                   Nenhuma solicitação pendente.
                 </div>
               {% endif %}
@@ -94,6 +95,7 @@
           </div>
         </div>
 
+        <!-- Botão Alternar Tema -->
         <button type="button"
                 onclick="toggleTheme()"
                 id="theme-toggle-btn"
@@ -107,6 +109,7 @@
           </svg>
         </button>
 
+        <!-- Menu do Usuário -->
         <div class="relative">
           <button type="button"
                   id="user-menu-btn"
