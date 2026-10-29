@@ -19,7 +19,6 @@
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen transition-colors duration-200">
 
-  <!-- Container de Toasts -->
   <div class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
     {% if messages %}
       {% for message in messages %}
@@ -49,12 +48,9 @@
     </div>
   </div>
 
-  <!-- Navbar / Barra Superior Padronizada -->
-  <!-- Navbar / Barra Superior Padronizada (Dashboard) -->
   <nav class="bg-[#3b3dbf] dark:bg-[#161730] text-white px-3 sm:px-6 h-14 shadow-md border-b border-indigo-700/40 dark:border-slate-800 flex items-center relative z-40 transition-colors duration-200">
     <div class="max-w-6xl w-full mx-auto flex items-center justify-between gap-2">
       
-      <!-- Lado Esquerdo: Voltar + Nome + Badge -->
       <div class="flex items-center gap-2.5 min-w-0">
         <a href="{% url 'meus_familiares' %}" title="Voltar aos Meus Familiares" class="w-9 h-9 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white active:scale-95 transition shadow-sm shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,10 +65,8 @@
         </div>
       </div>
 
-      <!-- Lado Direito: Ações com Ícones Padronizados -->
       <div class="flex items-center gap-2 shrink-0">
         {% if eh_gestor %}
-          <!-- 1. Botão da Lixeira com Contador Dinâmico -->
           <button type="button" 
                   id="btn-abrir-lixeira"
                   onclick="abrirLixeiraGestor()" 
@@ -88,7 +82,6 @@
             {% endif %}
           </button>
 
-          <!-- 2. Botão Gestão de Membros -->
           <button type="button" 
                   onclick="document.getElementById('modal-membros').classList.remove('hidden')" 
                   title="Gestão de Membros" 
@@ -98,7 +91,6 @@
             </svg>
           </button>
 
-          <!-- 3. Botão Trilha de Auditoria -->
           <button type="button" 
                   onclick="document.getElementById('modal-auditoria').classList.remove('hidden')" 
                   title="Histórico de Auditoria" 
@@ -109,7 +101,6 @@
           </button>
         {% endif %}
 
-        <!-- 4. Alternador de Tema Claro / Escuro -->
         <button type="button" 
                 onclick="alternarTema()" 
                 title="Alternar Tema Claro/Escuro" 
@@ -122,7 +113,6 @@
           </svg>
         </button>
 
-        <!-- 5. Avatar do Perfil com Dropdown -->
         <div class="relative dropdown-container ml-1">
           <button id="btn-perfil-index" 
                   type="button" 
@@ -162,9 +152,7 @@
 
   <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
 
-    <!-- Barra de Filtros e Exportações -->
     <div class="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-wrap items-center justify-between gap-3">
-      <!-- Lado Esquerdo: Filtro de Mês e Ano -->
       <form method="get" class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <span class="text-sm select-none" title="Período">📅</span>
 
@@ -184,7 +172,6 @@
         </button>
       </form>
 
-      <!-- Lado Direito: Exportações Alinhadas -->
       <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <a href="{% url 'exportar_csv' familiar_atual.id %}?mes={{ mes_selecionado }}&ano={{ ano_selecionado }}" 
            title="Exportar dados em planilha CSV"
@@ -202,7 +189,6 @@
       </div>
     </div>
 
-    <!-- Cards de Totais -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
       <div class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Total Entradas</p>
@@ -224,7 +210,6 @@
       </div>
     </section>
 
-    <!-- Gráfico Donut de Despesas -->
     <section class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
         <div class="w-full sm:w-1/2 space-y-1 sm:space-y-2">
@@ -241,7 +226,6 @@
     </section>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-   <!-- Formulário de Lançamento -->
     <section class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 {% if not familiar_atual.ativo or mes_travado %}opacity-60 pointer-events-none{% endif %}">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-base font-bold text-slate-800 dark:text-slate-100">Novo Lançamento</h2>
@@ -276,7 +260,6 @@
       </form>
     </section>
 
-      <!-- Extrato de Movimentações (Design Limpo Sem Coluna Ações) -->
       <section class="lg:col-span-2 space-y-6">
         <div class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
           <div class="flex flex-wrap justify-between items-center gap-2 border-b dark:border-slate-700 pb-3">
@@ -294,7 +277,6 @@
             {% endif %}
           </div>
 
-          <!-- Filtros de Busca -->
           <form method="get" class="bg-slate-50 dark:bg-slate-700/40 p-3 sm:p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
             <input type="hidden" name="mes" value="{{ mes_selecionado }}">
             <input type="hidden" name="ano" value="{{ ano_selecionado }}">
@@ -411,9 +393,7 @@
     </div>
   </main>
 
-  <!-- Modais -->
   {% if eh_gestor %}
-  <!-- Modal 1: Lista da Lixeira -->
   <div id="modal-lixeira" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 space-y-4 text-slate-800 dark:text-slate-100">
       <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2">
@@ -461,7 +441,6 @@
     </div>
   </div>
 
-  <!-- Modal 2: Visualização de Detalhes da Transação Excluída -->
   <div id="modal-detalhes-excluida" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full p-6 space-y-4 text-slate-800 dark:text-slate-100">
       
@@ -538,7 +517,6 @@
     </div>
   </div>
 
-  <!-- Modal 3: Auditoria -->
   <div id="modal-auditoria" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-xl w-full p-6 space-y-4 text-slate-800 dark:text-slate-100">
       <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2">
@@ -568,7 +546,6 @@
     </div>
   </div>
 
-  <!-- Modal 4: Membros -->
   <div id="modal-membros" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 space-y-5 text-slate-800 dark:text-slate-100">
       <div class="flex justify-between items-center border-b dark:border-slate-700 pb-3">
@@ -622,7 +599,6 @@
   </div>
   {% endif %}
 
-  <!-- Modal de Categorias -->
 {% if familiar_atual.ativo %}
   <div id="modal-gerir-categorias" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 space-y-5 text-slate-800 dark:text-slate-100">
@@ -683,7 +659,6 @@
   {{ chart_values_json|json_script:"grafico-valores-data" }}
   {{ chart_colors_json|json_script:"grafico-colors-data" }}
 
-  <!-- Scripts Interativos -->
   <script>
     function atualizarIconeTema() {
       const isDark = document.documentElement.classList.contains('dark');
@@ -893,7 +868,6 @@
       setTimeout(() => el.remove(), 400); 
     }
   </script>
-  <!-- Gera a tag com o JSON nativo de forma segura fora de scripts JS -->
 {{ categorias_dict|json_script:"dados-categorias" }}
 
 <script>
@@ -920,12 +894,10 @@
 
       campoCategoria.innerHTML = '';
 
-      // Mantém a opção inicial vazia
       if (opcoesOriginais.length > 0) {
         campoCategoria.appendChild(opcoesOriginais[0].cloneNode(true));
       }
 
-      // Adiciona apenas as categorias correspondentes ao tipo selecionado
       opcoesOriginais.slice(1).forEach(function(opt) {
         const tipoDaCategoria = tiposPorId[opt.value];
         if (!tipoSelecionado || !tipoDaCategoria || tipoDaCategoria === tipoSelecionado) {
@@ -933,7 +905,6 @@
         }
       });
 
-      // Preserva a seleção caso pertença ao filtro atual
       const aindaExiste = campoCategoria.querySelector('option[value="' + valorSelecionado + '"]');
       campoCategoria.value = aindaExiste ? valorSelecionado : '';
     }

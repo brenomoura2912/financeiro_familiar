@@ -20,7 +20,6 @@
 
   <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-2xl max-w-lg w-full p-5 sm:p-7 space-y-6">
     
-    <!-- Cabeçalho -->
     <div class="flex items-center justify-between border-b dark:border-slate-700 pb-4">
       <div>
         <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Editar Lançamento</h1>
@@ -32,7 +31,6 @@
       </a>
     </div>
 
-    <!-- Mensagens do Django -->
     {% if messages %}
       <div class="space-y-2">
         {% for message in messages %}
@@ -43,7 +41,6 @@
       </div>
     {% endif %}
 
-    <!-- Formulário Principal de Edição -->
     <form method="post" enctype="multipart/form-data" class="space-y-4">
       {% csrf_token %}
 
@@ -59,9 +56,7 @@
         </div>
       {% endfor %}
 
-      <!-- Rodapé com Ações Protegidas -->
       <div class="flex items-center justify-between gap-3 pt-5 border-t dark:border-slate-700">
-        <!-- Disparador da Exclusão -->
         <button type="button" 
                 onclick="document.getElementById('modal-exclusao').classList.remove('hidden')"
                 class="text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-3.5 py-2 rounded-xl font-semibold transition border border-rose-200 dark:border-rose-800">
@@ -81,14 +76,12 @@
       </div>
     </form>
 
-    <!-- Formulário Invisível para Executar a Exclusão -->
     <form id="form-excluir" action="{% url 'excluir_transacao' transacao.id %}" method="post" class="hidden">
       {% csrf_token %}
     </form>
 
   </div>
 
-  <!-- Modal de Confirmação de Exclusão -->
   <div id="modal-exclusao" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-sm w-full p-6 text-center space-y-4 text-slate-800 dark:text-slate-100">
       <div class="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-300 flex items-center justify-center text-xl mx-auto">

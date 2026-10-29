@@ -14,11 +14,9 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-200">
 
-  <!-- Header Superior no mesmo tom Azul Índigo -->
   <header class="bg-indigo-600 dark:bg-indigo-700 border-b border-indigo-500/40 text-white sticky top-0 z-40 shadow-md transition-colors duration-200">
     <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
       
-      <!-- Logótipo / Nome do Projeto -->
       <a href="{% url 'meus_familiares' %}" class="flex items-center gap-3 group">
         <div class="w-10 h-10 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center text-white group-hover:scale-105 transition">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,10 +26,8 @@
         <span class="font-bold tracking-tight text-white text-base">Gestão Financeira</span>
       </a>
 
-      <!-- Menu de Ações à Direita -->
       <div class="flex items-center gap-3">
         
-        <!-- 1. Notificações / Sino -->
         <div class="relative">
           <button type="button" 
                   id="notifications-btn"
@@ -46,7 +42,6 @@
             {% endif %}
           </button>
 
-          <!-- Dropdown Flutuante de Notificações -->
           <div id="notifications-dropdown"
                class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-3 z-50 text-xs text-slate-800 dark:text-slate-100">
             
@@ -68,7 +63,6 @@
                     </p>
                     
                     <div class="flex items-center gap-2 mt-2">
-                      <!-- Formulário Aprovar -->
                       <form method="post" class="inline m-0 p-0">
                         {% csrf_token %}
                         <input type="hidden" name="acao" value="aprovar_membro">
@@ -79,7 +73,6 @@
                         </button>
                       </form>
 
-                      <!-- Formulário Recusar -->
                       <form method="post" class="inline m-0 p-0">
                         {% csrf_token %}
                         <input type="hidden" name="acao" value="recusar_membro">
@@ -101,23 +94,19 @@
           </div>
         </div>
 
-        <!-- 2. Alternador de Tema Claro / Escuro -->
         <button type="button"
                 onclick="toggleTheme()"
                 id="theme-toggle-btn"
                 title="Alternar Tema Claro/Escuro"
                 class="w-9 h-9 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white active:scale-95 transition focus:outline-none shadow-sm cursor-pointer">
-          <!-- Ícone do Sol: exibido no modo ESCURO (para alternar para claro) -->
           <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
           </svg>
-          <!-- Ícone da Lua: exibido no modo CLARO (para alternar para escuro) -->
           <svg id="moon-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
           </svg>
         </button>
 
-        <!-- 3. Avatar / Menu de Utilizador -->
         <div class="relative">
           <button type="button"
                   id="user-menu-btn"
@@ -126,7 +115,6 @@
             {{ request.user.first_name|default:request.user.username|make_list|first|upper }}
           </button>
 
-          <!-- Dropdown Utilizador -->
           <div id="user-menu-dropdown"
                class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-2 z-50 text-xs text-slate-700 dark:text-slate-200">
             <div class="px-4 py-2 border-b border-slate-100 dark:border-slate-700">
@@ -153,7 +141,6 @@
     </div>
   </header>
 
-  <!-- Mensagens de Alerta / Feedback (Toasts) -->
   {% if messages %}
     <div class="max-w-4xl w-full mx-auto px-4 mt-4 space-y-2">
       {% for message in messages %}
@@ -164,10 +151,8 @@
     </div>
   {% endif %}
 
-  <!-- Conteúdo Principal -->
   <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-6">
 
-    <!-- Card 1: Familiares em Acompanhamento -->
     <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md transition-colors duration-200">
       <div class="mb-4">
         <h2 class="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100">Familiares em Acompanhamento</h2>
@@ -219,10 +204,8 @@
       {% endif %}
     </section>
 
-    <!-- Cards de Ação Inferiores -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-      <!-- Card 2: Registar Novo Familiar -->
       <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md flex flex-col justify-between">
         <div>
           <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Registar Novo Familiar</h2>
@@ -246,7 +229,6 @@
         </div>
       </section>
 
-      <!-- Card 3: Entrar numa Família Existente -->
       <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md flex flex-col justify-between">
         <div>
           <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Entrar numa Família Existente</h2>
@@ -274,9 +256,7 @@
     </div>
   </main>
 
-  <!-- Scripts JavaScript -->
   <script>
-    // 1. Fecho automático suave das mensagens (Toasts) após 4 segundos
     document.addEventListener('DOMContentLoaded', () => {
       const alerts = document.querySelectorAll('.toast-message');
       if (alerts.length > 0) {
@@ -289,21 +269,18 @@
       }
     });
 
-    // 2. Dropdown de Notificações
     function toggleNotifications() {
       const dropdown = document.getElementById('notifications-dropdown');
       dropdown.classList.toggle('hidden');
       document.getElementById('user-menu-dropdown').classList.add('hidden');
     }
 
-    // 3. Dropdown de Utilizador
     function toggleUserMenu() {
       const dropdown = document.getElementById('user-menu-dropdown');
       dropdown.classList.toggle('hidden');
       document.getElementById('notifications-dropdown').classList.add('hidden');
     }
 
-    // Fechar menus flutuantes ao clicar fora
     document.addEventListener('click', (e) => {
       const notifBtn = document.getElementById('notifications-btn');
       const notifDrop = document.getElementById('notifications-dropdown');
@@ -319,16 +296,13 @@
       }
     });
 
-    // 4. Controlo de Tema Claro / Escuro (Ícones sincronizados)
     function applyThemeIcons(isDark) {
       const moon = document.getElementById('moon-icon');
       const sun = document.getElementById('sun-icon');
       if (isDark) {
-        // Se está no modo escuro, exibe o SOL para permitir clarear
         sun.classList.remove('hidden');
         moon.classList.add('hidden');
       } else {
-        // Se está no modo claro, exibe a LUA para permitir escurecer
         moon.classList.remove('hidden');
         sun.classList.add('hidden');
       }

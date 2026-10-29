@@ -205,7 +205,6 @@ class EditarPerfilForm(forms.ModelForm):
 
     class Meta:
         model = User
-        # Removemos 'email' daqui para impedir que o Django salve direto no banco
         fields = ['username']
 
     def __init__(self, *args, **kwargs):
@@ -235,7 +234,6 @@ class EditarPerfilForm(forms.ModelForm):
         user.first_name = partes_nome[0]
         user.last_name = partes_nome[1] if len(partes_nome) > 1 else ''
 
-        # GARANTIA: O e-mail nunca é salvo aqui. Fica travado no original da instância.
         user.email = self.instance.email
 
         if commit:
@@ -308,12 +306,10 @@ class EditarPerfilForm(forms.ModelForm):
 
         user = super().save(commit=False)
         
-        # Divide o nome completo entre first_name e last_name
         partes_nome = nome_completo.split(' ', 1)
         user.first_name = partes_nome[0]
         user.last_name = partes_nome[1] if len(partes_nome) > 1 else ''
 
-        # Mantém o e-mail original se tiver sido digitado um novo (aguarda confirmação por código)
         if email_digitado != email_antigo:
             user.email = email_antigo
 

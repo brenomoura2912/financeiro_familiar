@@ -14,6 +14,5 @@ urlpatterns = [
     path('', include('financeiro.urls')),
 ]
 
-# Configuração essencial para servir os comprovantes e notas fiscais em modo de desenvolvimento
 if settings.DEBUG:
   urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

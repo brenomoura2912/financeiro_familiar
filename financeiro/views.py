@@ -209,7 +209,6 @@ def meus_familiares_view(request):
     if request.method == 'POST':
         acao = request.POST.get('acao')
 
-        # 1. Criar novo familiar (Torna-se Gestor já APROVADO)
         if acao == 'criar_familiar' or 'criar_familiar' in request.POST:
             nome = request.POST.get('nome', '').strip()
             if not nome:
@@ -232,7 +231,6 @@ def meus_familiares_view(request):
             messages.success(request, f"Familiar '{nome}' registado com sucesso! Você é o gestor.")
             return redirect('meus_familiares')
 
-        # 2. Solicitar acesso com código de convite
         elif acao == 'solicitar_acesso' or 'solicitar_acesso' in request.POST:
             codigo = request.POST.get('codigo_convite', '').strip().upper()
             try:
@@ -258,7 +256,6 @@ def meus_familiares_view(request):
             messages.success(request, f"Solicitação enviada ao gestor de '{familiar.nome}'. Aguarde a aprovação.")
             return redirect('meus_familiares')
 
-        # 3. Ações de Aprovar ou Recusar Membros
         elif acao == 'aprovar_membro':
             solicitacao_id = request.POST.get('solicitacao_id')
             solicitacao = get_object_or_404(VinculoFamiliar, pk=solicitacao_id)
@@ -282,7 +279,6 @@ def meus_familiares_view(request):
                 messages.error(request, "Não possui permissão para recusar membros.")
             return redirect('meus_familiares')
 
-    # Apenas vínculos onde o usuário é GESTOR ou MEMBRO APROVADO aparecem na lista de cartões
     familiares = VinculoFamiliar.objects.filter(
         usuario=request.user, 
         status='APROVADO'
@@ -293,7 +289,6 @@ def meus_familiares_view(request):
         papel='GESTOR'
     ).values_list('familiar_id', flat=True)
 
-    # Solicitações pendentes aguardando aprovação deste gestor
     solicitacoes_pendentes = VinculoFamiliar.objects.filter(
         familiar_id__in=fam_gerenciados_ids,
         status='PENDENTE'
@@ -403,7 +398,6 @@ def dashboard_view(request, familiar_id):
 
     membros = VinculoFamiliar.objects.filter(familiar=familiar).select_related('usuario')
     categorias = Categoria.objects.filter(familiar=familiar)
-    # Mapeamento seguro das categorias
     categorias_dict = {str(cat.id): cat.tipo for cat in categorias}
 
     transacoes_excluidas = []

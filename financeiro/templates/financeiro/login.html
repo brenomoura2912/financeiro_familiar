@@ -18,7 +18,6 @@
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-200">
 
-  <!-- Container de Notificações / Mensagens -->
   {% if messages %}
     <div class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full">
       {% for message in messages %}
@@ -29,7 +28,6 @@
     </div>
   {% endif %}
 
-  <!-- Card de Login -->
   <div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 p-8 space-y-6">
     <div class="text-center space-y-2">
       <div class="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
@@ -84,7 +82,6 @@
     </div>
   </div>
 
-  <!-- Botão de Alternar Tema (Centralizado e Discreto) -->
   <div class="mt-6">
     <button type="button" 
             onclick="alternarTema()" 
