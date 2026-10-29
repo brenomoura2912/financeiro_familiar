@@ -1,5 +1,6 @@
+{% load static %}
 <!DOCTYPE html>
-<html lang="pt-br" class="dark">
+<html lang="pt-pt" class="h-full">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,149 +10,165 @@
     tailwind.config = {
       darkMode: 'class',
     }
-    // Aplicação imediata do tema salvo para evitar flash de tela
-    if (localStorage.getItem('theme') === 'light') {
-      document.documentElement.classList.remove('dark');
-    } else {
-      document.documentElement.classList.add('dark');
-    }
   </script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-200">
 
-  <!-- Cabeçalho Superior -->
-<!-- Barra Superior Padronizada (Meus Familiares) -->
-<!-- Barra Superior Padronizada (Meus Familiares) -->
-<!-- Barra Superior Padronizada (Meus Familiares) -->
-<!-- Barra Superior Padronizada (Meus Familiares) -->
-<header class="bg-[#3b3dbf] dark:bg-[#161730] text-white px-3 sm:px-6 h-14 shadow-md border-b border-indigo-700/40 dark:border-slate-800 flex items-center relative z-40 transition-colors duration-200">
-  <div class="max-w-6xl w-full mx-auto flex items-center justify-between gap-2">
-    
-    <!-- Lado Esquerdo: Identificação do App -->
-    <div class="flex items-center gap-2.5 min-w-0">
-      <div class="w-9 h-9 rounded-2xl bg-white/15 flex items-center justify-center text-white shrink-0 shadow-sm">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
-      </div>
-      <h1 class="text-xs sm:text-sm font-bold text-white tracking-wide truncate">Gestão Financeira</h1>
-    </div>
-
-    <!-- Lado Direito: Ações -->
-    <div class="flex items-center gap-2 shrink-0">
-
-      <!-- Notificações -->
-      <div class="relative" id="notifications-container">
-        <button type="button" 
-                onclick="toggleNotifications()" 
-                title="Notificações"
-                class="w-9 h-9 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white active:scale-95 transition relative focus:outline-none shadow-sm">
+  <!-- Header Superior no mesmo tom Azul Índigo -->
+  <header class="bg-indigo-600 dark:bg-indigo-700 border-b border-indigo-500/40 text-white sticky top-0 z-40 shadow-md transition-colors duration-200">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      
+      <!-- Logótipo / Nome do Projeto -->
+      <a href="{% url 'meus_familiares' %}" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center text-white group-hover:scale-105 transition">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
-          {% if total_pendentes and total_pendentes > 0 %}
-            <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-[#3b3dbf] dark:ring-[#161730] animate-pulse"></span>
-          {% endif %}
-        </button>
+        </div>
+        <span class="font-bold tracking-tight text-white text-base">Gestão Financeira</span>
+      </a>
 
-        <!-- Dropdown Notificações -->
-        <div id="notifications-dropdown" 
-             class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-3 z-50 text-xs text-slate-800 dark:text-slate-100">
-          <div class="px-4 pb-2 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-            <span class="font-bold">Solicitações de Acesso</span>
-            <span class="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-semibold px-2 py-0.5 rounded-full">
-              {{ total_pendentes|default:"0" }} pendente{{ total_pendentes|pluralize }}
-            </span>
-          </div>
-          <div class="max-h-60 overflow-y-auto px-2 divide-y divide-slate-100 dark:divide-slate-700/60">
-            {% if solicitacoes_pendentes %}
-              {% for sol in solicitacoes_pendentes %}
-                <div class="py-2.5 px-2">
-                  <p class="font-medium">
-                    <span class="font-bold text-indigo-600 dark:text-indigo-400">@{{ sol.usuario.username }}</span> quer entrar em <span class="font-semibold">{{ sol.familiar.nome }}</span>
-                  </p>
-                  <a href="{% url 'dashboard' sol.familiar.id %}" class="mt-2 inline-block px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-medium transition">
-                    Revisar
-                  </a>
-                </div>
-              {% endfor %}
-            {% else %}
-              <div class="py-6 text-center text-slate-400">
-                Nenhuma solicitação pendente.
-              </div>
+      <!-- Menu de Ações à Direita -->
+      <div class="flex items-center gap-3">
+        
+        <!-- 1. Notificações / Sino -->
+        <div class="relative">
+          <button type="button" 
+                  id="notifications-btn"
+                  onclick="toggleNotifications()"
+                  title="Notificações"
+                  class="w-9 h-9 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white active:scale-95 transition relative focus:outline-none shadow-sm cursor-pointer">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {% if total_pendentes and total_pendentes > 0 %}
+              <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-indigo-700 animate-pulse"></span>
             {% endif %}
+          </button>
+
+          <!-- Dropdown Flutuante de Notificações -->
+          <div id="notifications-dropdown"
+               class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-3 z-50 text-xs text-slate-800 dark:text-slate-100">
+            
+            <div class="px-4 pb-2 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+              <span class="font-bold">Solicitações de Acesso</span>
+              <span class="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-400 font-semibold px-2 py-0.5 rounded-full">
+                {{ total_pendentes|default:"0" }} pendente{{ total_pendentes|pluralize }}
+              </span>
+            </div>
+
+            <div class="max-h-60 overflow-y-auto px-2 divide-y divide-slate-100 dark:divide-slate-700/60">
+              {% if solicitacoes_pendentes %}
+                {% for sol in solicitacoes_pendentes %}
+                  <div class="py-2.5 px-2">
+                    <p class="text-xs font-medium">
+                      <span class="font-bold text-indigo-600 dark:text-indigo-400">@{{ sol.usuario.username }}</span> 
+                      quer entrar em 
+                      <span class="font-semibold">{{ sol.familiar.nome }}</span>
+                    </p>
+                    
+                    <div class="flex items-center gap-2 mt-2">
+                      <!-- Formulário Aprovar -->
+                      <form method="post" class="inline m-0 p-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="aprovar_membro">
+                        <input type="hidden" name="solicitacao_id" value="{{ sol.id }}">
+                        <button type="submit" class="px-2.5 py-1 text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg transition shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                          Aprovar
+                        </button>
+                      </form>
+
+                      <!-- Formulário Recusar -->
+                      <form method="post" class="inline m-0 p-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="acao" value="recusar_membro">
+                        <input type="hidden" name="solicitacao_id" value="{{ sol.id }}">
+                        <button type="submit" class="px-2.5 py-1 text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-lg transition shadow-sm flex items-center gap-1 active:scale-95 cursor-pointer">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                          Recusar
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="py-6 text-center text-slate-400">
+                  Nenhuma solicitação pendente.
+                </div>
+              {% endif %}
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Alternador de Tema Claro / Escuro -->
-      <button type="button" 
-              onclick="toggleTheme()" 
-              id="theme-toggle-btn" 
-              title="Alternar Tema Claro/Escuro"
-              class="w-9 h-9 rounded-2xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white active:scale-95 transition focus:outline-none shadow-sm">
-        <svg id="moon-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-        </svg>
-        <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-      </button>
-
-      <!-- Avatar com Dropdown -->
-      <div class="relative ml-1" id="user-menu-container">
-        <button type="button" 
-                id="user-menu-button" 
-                onclick="toggleUserMenu()" 
-                class="w-9 h-9 rounded-2xl bg-white/25 hover:bg-white/35 text-white flex items-center justify-center font-bold text-xs tracking-wider shadow-sm transition active:scale-95 overflow-hidden focus:outline-none ring-1 ring-white/20">
-          {% if request.user.perfil.foto %}
-            <img src="{{ request.user.perfil.foto.url }}" alt="{{ request.user.username }}" class="w-full h-full object-cover">
-          {% else %}
-            {{ request.user.first_name|default:request.user.username|make_list|first|upper }}
-          {% endif %}
+        <!-- 2. Alternador de Tema Claro / Escuro -->
+        <button type="button"
+                onclick="toggleTheme()"
+                id="theme-toggle-btn"
+                title="Alternar Tema Claro/Escuro"
+                class="w-9 h-9 rounded-2xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white active:scale-95 transition focus:outline-none shadow-sm cursor-pointer">
+          <!-- Ícone do Sol: exibido no modo ESCURO (para alternar para claro) -->
+          <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <!-- Ícone da Lua: exibido no modo CLARO (para alternar para escuro) -->
+          <svg id="moon-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
         </button>
 
-        <div id="user-menu-dropdown" 
-             class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 text-xs text-slate-800 dark:text-slate-100">
-          <div class="px-3.5 py-2 border-b border-slate-100 dark:border-slate-700">
-            <p class="font-semibold text-slate-800 dark:text-slate-100 truncate">{{ request.user.get_full_name|default:request.user.username }}</p>
-            <p class="text-[10px] text-slate-400 truncate">{{ request.user.email }}</p>
+        <!-- 3. Avatar / Menu de Utilizador -->
+        <div class="relative">
+          <button type="button"
+                  id="user-menu-btn"
+                  onclick="toggleUserMenu()"
+                  class="w-9 h-9 rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 font-bold text-white flex items-center justify-center text-sm shadow-md active:scale-95 transition focus:outline-none cursor-pointer">
+            {{ request.user.first_name|default:request.user.username|make_list|first|upper }}
+          </button>
+
+          <!-- Dropdown Utilizador -->
+          <div id="user-menu-dropdown"
+               class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-2 z-50 text-xs text-slate-700 dark:text-slate-200">
+            <div class="px-4 py-2 border-b border-slate-100 dark:border-slate-700">
+              <p class="font-semibold truncate">{{ request.user.get_full_name|default:request.user.username }}</p>
+              <p class="text-[10px] text-slate-400 truncate">{{ request.user.email }}</p>
+            </div>
+            
+            <a href="{% url 'perfil' %}" class="flex items-center gap-2 px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+              Editar Perfil
+            </a>
+
+            <form method="post" action="{% url 'logout' %}" class="m-0">
+              {% csrf_token %}
+              <button type="submit" class="w-full text-left flex items-center gap-2 px-4 py-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer">
+                <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Terminar Sessão
+              </button>
+            </form>
           </div>
-          <a href="{% url 'perfil' %}" class="flex items-center gap-2 px-3.5 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-            Editar Perfil
-          </a>
-          <form method="post" action="{% url 'logout' %}" class="m-0">
-            {% csrf_token %}
-            <button type="submit" class="w-full text-left flex items-center gap-2 px-3.5 py-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
-              <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-              Sair
-            </button>
-          </form>
         </div>
+
       </div>
-
     </div>
-  </div>
-</header>
+  </header>
 
-
-  <!-- Mensagens de Alerta/Feedback -->
+  <!-- Mensagens de Alerta / Feedback (Toasts) -->
   {% if messages %}
     <div class="max-w-4xl w-full mx-auto px-4 mt-4 space-y-2">
       {% for message in messages %}
-        <div class="p-3 text-xs rounded-xl font-medium {% if message.tags == 'error' %}bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900{% else %}bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900{% endif %}">
+        <div class="toast-message transition-all duration-500 ease-out p-3 text-xs rounded-xl font-medium {% if message.tags == 'error' %}bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900{% else %}bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900{% endif %}">
           {{ message }}
         </div>
       {% endfor %}
     </div>
   {% endif %}
 
-  <!-- Conteúdo Central -->
+  <!-- Conteúdo Principal -->
   <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-6">
 
     <!-- Card 1: Familiares em Acompanhamento -->
-    <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm transition-colors duration-200">
+    <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md transition-colors duration-200">
       <div class="mb-4">
         <h2 class="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100">Familiares em Acompanhamento</h2>
         <p class="text-xs text-slate-500 dark:text-slate-400">Selecione o perfil desejado para aceder a receitas, despesas e extratos.</p>
@@ -160,118 +177,94 @@
       {% if familiares %}
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {% for item in familiares %}
-            <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500/60 rounded-2xl p-4 flex flex-col justify-between gap-3.5 shadow-sm transition">
-              
-              <!-- Topo: Avatar, Nome e Papel -->
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/40 flex items-center justify-center font-bold text-sm uppercase shrink-0">
-                  {{ item.familiar.nome|make_list|first }}
-                </div>
-                <div class="truncate flex-1">
-                  <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ item.familiar.nome }}</h3>
-                  <span class="inline-block text-[10px] px-2 py-0.5 rounded-full font-medium {% if item.papel == 'GESTOR' %}bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700/50{% else %}bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300{% endif %}">
-                    {% if item.papel == 'GESTOR' %}Gestor{% else %}Membro{% endif %}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Código de Convite com Design Refinado -->
-              {% if item.papel == 'GESTOR' and item.familiar.codigo_convite %}
-                <div class="flex items-center justify-between bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 transition group/code">
-                  <div class="flex items-center gap-2">
-                    <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Código</span>
-                    <span class="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-300 tracking-widest bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/40 px-2 py-0.5 rounded-md select-all">
-                      {{ item.familiar.codigo_convite }}
+            <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500/80 rounded-2xl p-4 flex flex-col justify-between gap-3.5 shadow-sm transition">
+              <div>
+                <div class="flex items-center gap-3 mb-2">
+                  <div class="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 font-bold flex items-center justify-center text-sm">
+                    {{ item.familiar.nome|make_list|first|upper }}
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-slate-800 dark:text-slate-100 text-sm truncate max-w-[150px]">{{ item.familiar.nome }}</h3>
+                    <span class="inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold {% if item.papel == 'GESTOR' %}bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300{% else %}bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300{% endif %}">
+                      {{ item.get_papel_display|default:item.papel|title }}
                     </span>
                   </div>
-
-                  <button type="button" 
-                          onclick="copiarCodigo('{{ item.familiar.codigo_convite }}', this)" 
-                          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition active:scale-95 text-xs shadow-sm">
-                    <svg class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 group-hover/code:text-indigo-500 dark:group-hover/code:text-indigo-400 transition icon-copy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                    </svg>
-                    <span class="label-copy">Copiar</span>
-                  </button>
                 </div>
-              {% endif %}
 
-              <!-- Botão Aceder à Gestão -->
-              <a href="{% url 'dashboard' item.familiar.id %}" 
-                 class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-xl text-xs text-center transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95">
-                <span>Aceder à Gestão</span>
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
+                {% if item.papel == 'GESTOR' %}
+                  <div class="mt-3 flex items-center justify-between bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs">
+                    <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Código</span>
+                    <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 tracking-wider text-xs">{{ item.familiar.codigo_convite }}</span>
+                    <button type="button" 
+                            onclick="navigator.clipboard.writeText('{{ item.familiar.codigo_convite }}'); alert('Código copiado!')"
+                            class="text-[11px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1 transition cursor-pointer">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                      Copiar
+                    </button>
+                  </div>
+                {% endif %}
+              </div>
+
+              <a href="{% url 'dashboard' item.familiar.id %}" class="w-full text-center py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md active:scale-95 transition flex items-center justify-center gap-1.5">
+                Aceder à Gestão
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
               </a>
-
             </div>
           {% endfor %}
         </div>
       {% else %}
-        <div class="text-center py-8 text-xs text-slate-500 dark:text-slate-400">
-          Nenhum familiar registado de momento. Utilize as opções abaixo para iniciar.
+        <div class="text-center py-8 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl text-slate-400 text-xs">
+          Ainda não acompanha nenhum familiar. Registe um novo ou utilize um código de convite abaixo.
         </div>
       {% endif %}
     </section>
 
-    <!-- Formulários Inferiores em Grelha -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+    <!-- Cards de Ação Inferiores -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
       <!-- Card 2: Registar Novo Familiar -->
-      <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 shadow-xl backdrop-blur-sm flex flex-col justify-between transition-colors duration-200">
+      <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md flex flex-col justify-between">
         <div>
-          <h2 class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Registar Novo Familiar</h2>
-          <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-            Será o Gestor com controlo total sobre este acompanhamento.
-          </p>
+          <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Registar Novo Familiar</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Será o Gestor com controlo total sobre este acompanhamento.</p>
 
-          <form method="post" class="space-y-3.5">
+          <form method="post" class="space-y-3">
             {% csrf_token %}
+            <input type="hidden" name="acao" value="criar_familiar">
             <div>
-              <label for="nome_familiar" class="block text-[11px] font-medium text-slate-700 dark:text-slate-300 mb-1">Nome Completo do Familiar:</label>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Nome Completo do Familiar:</label>
               <input type="text" 
-                     id="nome_familiar" 
                      name="nome" 
-                     required 
+                     required
                      placeholder="Ex: Dona Maria de Lourdes"
-                     class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                     class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100 transition">
             </div>
-
-            <button type="submit" 
-                    name="acao" 
-                    value="criar_familiar" 
-                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-xl text-xs transition active:scale-95 shadow-sm">
+            <button type="submit" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md active:scale-95 transition cursor-pointer">
               Registar e Tornar-se Gestor
             </button>
           </form>
         </div>
       </section>
 
-      <!-- Card 3: Entrar num Familiar Existente -->
-      <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 shadow-xl backdrop-blur-sm flex flex-col justify-between transition-colors duration-200">
+      <!-- Card 3: Entrar numa Família Existente -->
+      <section class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-md flex flex-col justify-between">
         <div>
-          <h2 class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Entrar numa Família Existente</h2>
-          <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-            Introduza o código partilhado pelo gestor responsável.
-          </p>
+          <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Entrar numa Família Existente</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Introduza o código partilhado pelo gestor responsável.</p>
 
-          <form method="post" class="space-y-3.5">
+          <form method="post" class="space-y-3">
             {% csrf_token %}
+            <input type="hidden" name="acao" value="solicitar_acesso">
             <div>
-              <label for="codigo_convite" class="block text-[11px] font-medium text-slate-700 dark:text-slate-300 mb-1">Código de Convite:</label>
+              <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Código de Convite:</label>
               <input type="text" 
-                     id="codigo_convite" 
                      name="codigo_convite" 
-                     required 
-                     placeholder="EX: LUR83921"
-                     class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 placeholder-slate-400 uppercase tracking-widest font-mono outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                     required
+                     maxlength="6"
+                     placeholder="EX: LUR839"
+                     class="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 uppercase font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100 transition">
             </div>
-
-            <button type="submit" 
-                    name="acao" 
-                    value="solicitar_acesso" 
-                    class="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2.5 rounded-xl text-xs transition active:scale-95 border border-slate-300 dark:border-slate-600">
+            <button type="submit" class="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl text-xs font-semibold shadow-md active:scale-95 transition cursor-pointer">
               Solicitar Acesso de Membro
             </button>
           </form>
@@ -279,147 +272,88 @@
       </section>
 
     </div>
-
   </main>
 
-  <!-- JavaScript Unificado -->
+  <!-- Scripts JavaScript -->
   <script>
-    // Gerenciamento e alternância do Tema (Claro / Escuro)
-    function updateThemeIcons() {
-      const isDark = document.documentElement.classList.contains('dark');
-      const moon = document.getElementById('moon-icon');
-      const sun = document.getElementById('sun-icon');
-      if (isDark) {
-        moon.classList.remove('hidden');
-        sun.classList.add('hidden');
-      } else {
-        sun.classList.remove('hidden');
-        moon.classList.add('hidden');
-      }
-    }
-
-    function toggleTheme() {
-      if (document.documentElement.classList.contains('dark')) {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-      } else {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      }
-      updateThemeIcons();
-    }
-
-    // Inicializa os ícones corretos no carregamento
-    updateThemeIcons();
-
-    // Controle do Dropdown de Notificações
-    function toggleNotifications() {
-      const menu = document.getElementById('notifications-dropdown');
-      menu.classList.toggle('hidden');
-      // Fecha o menu de usuário caso esteja aberto
-      document.getElementById('user-menu-dropdown').classList.add('hidden');
-    }
-
-    // Controle do Dropdown do Usuário
-    function toggleUserMenu() {
-      const menu = document.getElementById('user-menu-dropdown');
-      menu.classList.toggle('hidden');
-      // Fecha as notificações caso estejam abertas
-      document.getElementById('notifications-dropdown').classList.add('hidden');
-    }
-
-    // Fecha os menus ao clicar fora
-    document.addEventListener('click', function(event) {
-      const notifContainer = document.getElementById('notifications-container');
-      const userContainer = document.getElementById('user-menu-container');
-      
-      if (notifContainer && !notifContainer.contains(event.target)) {
-        document.getElementById('notifications-dropdown').classList.add('hidden');
-      }
-      if (userContainer && !userContainer.contains(event.target)) {
-        document.getElementById('user-menu-dropdown').classList.add('hidden');
+    // 1. Fecho automático suave das mensagens (Toasts) após 4 segundos
+    document.addEventListener('DOMContentLoaded', () => {
+      const alerts = document.querySelectorAll('.toast-message');
+      if (alerts.length > 0) {
+        setTimeout(() => {
+          alerts.forEach(alert => {
+            alert.classList.add('opacity-0', '-translate-y-2');
+            setTimeout(() => alert.remove(), 500);
+          });
+        }, 4000);
       }
     });
 
-    // Copiar Código de Convite com feedback visual
-    function copiarCodigo(texto, botao) {
-      navigator.clipboard.writeText(texto).then(() => {
-        const label = botao.querySelector('.label-copy');
-        const icone = botao.querySelector('.icon-copy');
-        const textoOriginal = label ? label.innerText : botao.innerText;
-
-        botao.classList.add('text-emerald-500', 'bg-emerald-50', 'dark:bg-emerald-950/60', 'border-emerald-300', 'dark:border-emerald-700/50');
-        if (label) label.innerText = 'Copiado!';
-
-        setTimeout(() => {
-          botao.classList.remove('text-emerald-500', 'bg-emerald-50', 'dark:bg-emerald-950/60', 'border-emerald-300', 'dark:border-emerald-700/50');
-          if (label) label.innerText = textoOriginal;
-        }, 2000);
-      });
+    // 2. Dropdown de Notificações
+    function toggleNotifications() {
+      const dropdown = document.getElementById('notifications-dropdown');
+      dropdown.classList.toggle('hidden');
+      document.getElementById('user-menu-dropdown').classList.add('hidden');
     }
 
-
-// Controle do Avatar Menu
-function toggleUserMenu() {
-  const menu = document.getElementById('user-menu-dropdown');
-  if (menu) menu.classList.toggle('hidden');
-  const notif = document.getElementById('notifications-dropdown');
-  if (notif) notif.classList.add('hidden');
-}
-
-// Controle de Notificações
-function toggleNotifications() {
-  const menu = document.getElementById('notifications-dropdown');
-  if (menu) menu.classList.toggle('hidden');
-  const user = document.getElementById('user-menu-dropdown');
-  if (user) user.classList.add('hidden');
-}
-
-// Fecha menus ao clicar fora
-document.addEventListener('click', function(event) {
-  const userBox = document.getElementById('user-menu-container');
-  const notifBox = document.getElementById('notifications-container');
-  const userDropdown = document.getElementById('user-menu-dropdown');
-  const notifDropdown = document.getElementById('notifications-dropdown');
-
-  if (userBox && userDropdown && !userBox.contains(event.target)) {
-    userDropdown.classList.add('hidden');
-  }
-  if (notifBox && notifDropdown && !notifBox.contains(event.target)) {
-    notifDropdown.classList.add('hidden');
-  }
-});
-
-// Sincronização do Modo Escuro / Claro
-function updateThemeIcons() {
-  const isDark = document.documentElement.classList.contains('dark');
-  const moon = document.getElementById('moon-icon');
-  const sun = document.getElementById('sun-icon');
-  if (moon && sun) {
-    if (isDark) {
-      moon.classList.remove('hidden');
-      sun.classList.add('hidden');
-    } else {
-      sun.classList.remove('hidden');
-      moon.classList.add('hidden');
+    // 3. Dropdown de Utilizador
+    function toggleUserMenu() {
+      const dropdown = document.getElementById('user-menu-dropdown');
+      dropdown.classList.toggle('hidden');
+      document.getElementById('notifications-dropdown').classList.add('hidden');
     }
-  }
-}
 
-function toggleTheme() {
-  if (document.documentElement.classList.contains('dark')) {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('theme', 'light');
-  } else {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('theme', 'dark');
-  }
-  updateThemeIcons();
-}
+    // Fechar menus flutuantes ao clicar fora
+    document.addEventListener('click', (e) => {
+      const notifBtn = document.getElementById('notifications-btn');
+      const notifDrop = document.getElementById('notifications-dropdown');
+      const userBtn = document.getElementById('user-menu-btn');
+      const userDrop = document.getElementById('user-menu-dropdown');
 
-// Executa ao abrir a página
-updateThemeIcons();    
+      if (notifBtn && notifDrop && !notifBtn.contains(e.target) && !notifDrop.contains(e.target)) {
+        notifDrop.classList.add('hidden');
+      }
+
+      if (userBtn && userDrop && !userBtn.contains(e.target) && !userDrop.contains(e.target)) {
+        userDrop.classList.add('hidden');
+      }
+    });
+
+    // 4. Controlo de Tema Claro / Escuro (Ícones sincronizados)
+    function applyThemeIcons(isDark) {
+      const moon = document.getElementById('moon-icon');
+      const sun = document.getElementById('sun-icon');
+      if (isDark) {
+        // Se está no modo escuro, exibe o SOL para permitir clarear
+        sun.classList.remove('hidden');
+        moon.classList.add('hidden');
+      } else {
+        // Se está no modo claro, exibe a LUA para permitir escurecer
+        moon.classList.remove('hidden');
+        sun.classList.add('hidden');
+      }
+    }
+
+    function initTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
+
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      applyThemeIcons(isDark);
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      applyThemeIcons(isDark);
+    }
+
+    initTheme();
   </script>
-
 </body>
 </html>

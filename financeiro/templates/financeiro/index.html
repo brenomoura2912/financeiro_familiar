@@ -241,33 +241,40 @@
     </section>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Formulário de Lançamento -->
-      <section class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 {% if not familiar_atual.ativo or mes_travado %}opacity-60 pointer-events-none{% endif %}">
-        <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2">
-          <h2 class="text-base font-bold text-slate-800 dark:text-slate-100">Novo Lançamento</h2>
-          {% if eh_gestor and familiar_atual.ativo %}
-            <button type="button" onclick="document.getElementById('modal-gerir-categorias').classList.remove('hidden')" class="text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 transition shadow-sm">
-              ⚙ Categorias
-            </button>
-          {% endif %}
-        </div>
+   <!-- Formulário de Lançamento -->
+    <section class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 {% if not familiar_atual.ativo or mes_travado %}opacity-60 pointer-events-none{% endif %}">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold text-slate-800 dark:text-slate-100">Novo Lançamento</h2>
+       <button type="button" 
+                onclick="document.getElementById('modal-gerir-categorias').classList.remove('hidden')"
+                class="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Categorias
+        </button>
+      </div>
 
-        <form method="post" enctype="multipart/form-data" class="space-y-3">
-          {% csrf_token %}
-          {% for field in form_transacao %}
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">{{ field.label }}</label>
-              {{ field }}
-              {% if field.errors %}
-                <span class="text-xs text-rose-500">{{ field.errors.0 }}</span>
-              {% endif %}
-            </div>
-          {% endfor %}
-          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition shadow" {% if not familiar_atual.ativo or mes_travado %}disabled{% endif %}>
-            Registrar Lançamento
-          </button>
-        </form>
-      </section>
+      <form method="post" enctype="multipart/form-data" class="space-y-3">
+        {% csrf_token %}
+        {% for field in form_transacao %}
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+              {% for erro in field.errors %}
+                <span class="text-xs text-rose-500 block mt-0.5">{{ erro }}</span>
+              {% endfor %}
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg transition shadow cursor-pointer active:scale-95 text-xs">
+          Registrar Lançamento
+        </button>
+      </form>
+    </section>
 
       <!-- Extrato de Movimentações (Design Limpo Sem Coluna Ações) -->
       <section class="lg:col-span-2 space-y-6">
@@ -616,7 +623,7 @@
   {% endif %}
 
   <!-- Modal de Categorias -->
-  {% if eh_gestor and familiar_atual.ativo %}
+{% if familiar_atual.ativo %}
   <div id="modal-gerir-categorias" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 space-y-5 text-slate-800 dark:text-slate-100">
       <div class="flex justify-between items-center border-b dark:border-slate-700 pb-3">
@@ -886,5 +893,61 @@
       setTimeout(() => el.remove(), 400); 
     }
   </script>
+  <!-- Gera a tag com o JSON nativo de forma segura fora de scripts JS -->
+{{ categorias_dict|json_script:"dados-categorias" }}
+
+<script>
+(function() {
+  function inicializarFiltroCategorias() {
+    const campoTipo = document.querySelector('select[name="tipo"]');
+    const campoCategoria = document.querySelector('select[name="categoria"]');
+    const scriptTag = document.getElementById('dados-categorias');
+
+    if (!campoTipo || !campoCategoria || !scriptTag) return;
+
+    let tiposPorId = {};
+    try {
+      tiposPorId = JSON.parse(scriptTag.textContent);
+    } catch (e) {
+      tiposPorId = {};
+    }
+
+    const opcoesOriginais = Array.from(campoCategoria.options);
+
+    function filtrar() {
+      const tipoSelecionado = campoTipo.value;
+      const valorSelecionado = campoCategoria.value;
+
+      campoCategoria.innerHTML = '';
+
+      // Mantém a opção inicial vazia
+      if (opcoesOriginais.length > 0) {
+        campoCategoria.appendChild(opcoesOriginais[0].cloneNode(true));
+      }
+
+      // Adiciona apenas as categorias correspondentes ao tipo selecionado
+      opcoesOriginais.slice(1).forEach(function(opt) {
+        const tipoDaCategoria = tiposPorId[opt.value];
+        if (!tipoSelecionado || !tipoDaCategoria || tipoDaCategoria === tipoSelecionado) {
+          campoCategoria.appendChild(opt.cloneNode(true));
+        }
+      });
+
+      // Preserva a seleção caso pertença ao filtro atual
+      const aindaExiste = campoCategoria.querySelector('option[value="' + valorSelecionado + '"]');
+      campoCategoria.value = aindaExiste ? valorSelecionado : '';
+    }
+
+    campoTipo.addEventListener('change', filtrar);
+    filtrar();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inicializarFiltroCategorias);
+  } else {
+    inicializarFiltroCategorias();
+  }
+})();
+</script>
 </body>
 </html>

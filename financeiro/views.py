@@ -76,8 +76,14 @@ def login_view(request):
         return redirect('meus_familiares')
 
     if request.method == 'POST':
-        identificador = request.POST.get('identificador', '').strip()
-        senha = request.POST.get('senha', '')
+        identificador = (
+            request.POST.get('identificador') or 
+            request.POST.get('username') or 
+            request.POST.get('email') or 
+            ''
+        ).strip()
+
+        senha = request.POST.get('senha') or request.POST.get('password') or ''
 
         usuario_obj = User.objects.filter(
             Q(email__iexact=identificador) | Q(username__iexact=identificador),
@@ -189,20 +195,21 @@ def logout_view(request):
     messages.success(request, "Sessão encerrada com sucesso.")
     return redirect('login')
 
+
 def gerar_codigo_convite():
     caracteres = string.ascii_uppercase + string.digits
     while True:
         codigo = ''.join(random.choices(caracteres, k=6))
         if not Familiar.objects.filter(codigo_convite=codigo).exists():
             return codigo
-        
+
 
 @login_required
 def meus_familiares_view(request):
     if request.method == 'POST':
         acao = request.POST.get('acao')
 
-        # 1. Criar novo familiar (Torna-se Gestor)
+        # 1. Criar novo familiar (Torna-se Gestor já APROVADO)
         if acao == 'criar_familiar' or 'criar_familiar' in request.POST:
             nome = request.POST.get('nome', '').strip()
             if not nome:
@@ -215,11 +222,11 @@ def meus_familiares_view(request):
                 codigo_convite=codigo
             )
 
-            # Usa VinculoFamiliar em vez de MembroFamiliar
             VinculoFamiliar.objects.create(
                 familiar=familiar,
                 usuario=request.user,
-                papel='GESTOR'
+                papel='GESTOR',
+                status='APROVADO'
             )
 
             messages.success(request, f"Familiar '{nome}' registado com sucesso! Você é o gestor.")
@@ -234,21 +241,59 @@ def meus_familiares_view(request):
                 messages.error(request, "Código de convite inválido ou não encontrado.")
                 return redirect('meus_familiares')
 
-            if VinculoFamiliar.objects.filter(familiar=familiar, usuario=request.user).exists():
-                messages.warning(request, "Você já possui acesso a este familiar.")
+            vinculo_existente = VinculoFamiliar.objects.filter(familiar=familiar, usuario=request.user).first()
+            if vinculo_existente:
+                if vinculo_existente.status == 'PENDENTE':
+                    messages.info(request, "Já possui uma solicitação pendente para este familiar.")
+                else:
+                    messages.warning(request, "Você já possui acesso a este familiar.")
                 return redirect('meus_familiares')
 
             VinculoFamiliar.objects.create(
                 familiar=familiar,
                 usuario=request.user,
-                papel='MEMBRO'
+                papel='MEMBRO',
+                status='PENDENTE'
             )
-            messages.success(request, f"Acesso concedido ao familiar '{familiar.nome}'.")
+            messages.success(request, f"Solicitação enviada ao gestor de '{familiar.nome}'. Aguarde a aprovação.")
             return redirect('meus_familiares')
 
-    familiares = VinculoFamiliar.objects.filter(usuario=request.user).select_related('familiar')
-    fam_gerenciados_ids = familiares.filter(papel='GESTOR').values_list('familiar_id', flat=True)
-    # Solicitações pendentes aguardando aprovação
+        # 3. Ações de Aprovar ou Recusar Membros
+        elif acao == 'aprovar_membro':
+            solicitacao_id = request.POST.get('solicitacao_id')
+            solicitacao = get_object_or_404(VinculoFamiliar, pk=solicitacao_id)
+            eh_gestor = VinculoFamiliar.objects.filter(familiar=solicitacao.familiar, usuario=request.user, papel='GESTOR').exists()
+            if eh_gestor:
+                solicitacao.status = 'APROVADO'
+                solicitacao.save()
+                messages.success(request, f"Acesso de @{solicitacao.usuario.username} aprovado!")
+            else:
+                messages.error(request, "Não possui permissão para aprovar membros.")
+            return redirect('meus_familiares')
+
+        elif acao == 'recusar_membro':
+            solicitacao_id = request.POST.get('solicitacao_id')
+            solicitacao = get_object_or_404(VinculoFamiliar, pk=solicitacao_id)
+            eh_gestor = VinculoFamiliar.objects.filter(familiar=solicitacao.familiar, usuario=request.user, papel='GESTOR').exists()
+            if eh_gestor:
+                solicitacao.delete()
+                messages.info(request, f"Solicitação de @{solicitacao.usuario.username} recusada.")
+            else:
+                messages.error(request, "Não possui permissão para recusar membros.")
+            return redirect('meus_familiares')
+
+    # Apenas vínculos onde o usuário é GESTOR ou MEMBRO APROVADO aparecem na lista de cartões
+    familiares = VinculoFamiliar.objects.filter(
+        usuario=request.user, 
+        status='APROVADO'
+    ).select_related('familiar')
+
+    fam_gerenciados_ids = VinculoFamiliar.objects.filter(
+        usuario=request.user, 
+        papel='GESTOR'
+    ).values_list('familiar_id', flat=True)
+
+    # Solicitações pendentes aguardando aprovação deste gestor
     solicitacoes_pendentes = VinculoFamiliar.objects.filter(
         familiar_id__in=fam_gerenciados_ids,
         status='PENDENTE'
@@ -260,13 +305,13 @@ def meus_familiares_view(request):
         'total_pendentes': solicitacoes_pendentes.count(),
     }
     return render(request, 'financeiro/meus_familiares.html', contexto)
-   
 
 
 @login_required
 def dashboard_view(request, familiar_id):
     familiar = get_object_or_404(Familiar, pk=familiar_id)
     vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
+    
 
     if not vinculo:
         messages.error(request, "Não possui permissão para aceder a este familiar.")
@@ -286,7 +331,6 @@ def dashboard_view(request, familiar_id):
     fechamento = FechamentoMes.objects.filter(familiar=familiar, mes=mes_filtro, ano=ano_filtro).first()
     esta_fechado = fechamento.fechado if fechamento else False
 
-    # Apenas transações ATIVAS entram no extrato e nos cálculos
     transacoes = Transacao.objects.filter(
         familiar=familiar,
         ativo=True,
@@ -359,8 +403,9 @@ def dashboard_view(request, familiar_id):
 
     membros = VinculoFamiliar.objects.filter(familiar=familiar).select_related('usuario')
     categorias = Categoria.objects.filter(familiar=familiar)
+    # Mapeamento seguro das categorias
+    categorias_dict = {str(cat.id): cat.tipo for cat in categorias}
 
-    # Transações na lixeira (acessíveis apenas para o gestor)
     transacoes_excluidas = []
     if vinculo.papel == 'GESTOR':
         transacoes_excluidas = Transacao.objects.filter(
@@ -425,6 +470,7 @@ def dashboard_view(request, familiar_id):
         'compradores_disponiveis': compradores_disponiveis,
         'formas_pagamento_disponiveis': formas_pagamento_disponiveis,
         'logs_auditoria': logs_auditoria,
+        'categorias_dict': categorias_dict,
     }
     return render(request, 'financeiro/index.html', contexto)
 
@@ -589,7 +635,7 @@ def exportar_pdf_view(request, familiar_id):
 @login_required
 def criar_categoria_view(request, familiar_id):
     familiar = get_object_or_404(Familiar, pk=familiar_id)
-    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
 
     if not vinculo:
         messages.error(request, "Apenas gestores podem gerir categorias.")
@@ -620,7 +666,7 @@ def criar_categoria_view(request, familiar_id):
 def excluir_categoria_view(request, categoria_id):
     categoria = get_object_or_404(Categoria, pk=categoria_id)
     familiar = categoria.familiar
-    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO' ).first()
 
     if not vinculo:
         messages.error(request, "Apenas gestores podem remover categorias.")
@@ -690,7 +736,6 @@ def excluir_transacao_view(request, transacao_id):
         return redirect(f"/dashboard/{familiar.id}/?mes={mes}&ano={ano}")
 
     if request.method == 'POST':
-        # SOFT DELETE: não apaga da base de dados, apenas desativa
         transacao.ativo = False
         transacao.save()
 
@@ -715,7 +760,6 @@ def restaurar_transacao_view(request, transacao_id):
         messages.error(request, "Apenas gestores podem restaurar lançamentos eliminados.")
         return redirect('dashboard', familiar_id=familiar.id)
 
-    # RESTAURAÇÃO: reativa o registo
     transacao.ativo = True
     transacao.save()
 
@@ -730,7 +774,6 @@ def restaurar_transacao_view(request, transacao_id):
 
 
 @login_required
-@login_required
 def perfil_view(request):
     perfil, _ = PerfilUsuario.objects.get_or_create(usuario=request.user)
     form_perfil = EditarPerfilForm(instance=request.user)
@@ -738,7 +781,6 @@ def perfil_view(request):
 
     if request.method == 'POST':
         if 'atualizar_perfil' in request.POST:
-            # 1. Pega o e-mail REAL que está gravado no banco de dados agora
             email_banco = User.objects.filter(pk=request.user.pk).values_list('email', flat=True).first() or ''
             email_banco = email_banco.strip().lower()
 
@@ -746,18 +788,15 @@ def perfil_view(request):
             if form_perfil.is_valid():
                 novo_email = form_perfil.cleaned_data.get('email', '').strip().lower()
 
-                # 2. Salva nome, username e foto (o e-mail continua o antigo no banco)
                 usuario_salvo = form_perfil.save(commit=False)
-                usuario_salvo.email = email_banco  # FORÇA o e-mail a permanecer o do banco
+                usuario_salvo.email = email_banco
                 usuario_salvo.save()
 
-                # Salva a foto se foi enviada
                 foto = form_perfil.cleaned_data.get('foto')
                 if foto:
                     perfil.foto = foto
                     perfil.save()
 
-                # 3. Se o e-mail digitado for diferente do que está no banco:
                 if novo_email and novo_email != email_banco:
                     request.session['novo_email_pendente'] = novo_email
                     try:
@@ -789,8 +828,9 @@ def perfil_view(request):
                 messages.success(request, "Palavra-passe alterada com sucesso!")
                 return redirect('perfil')
             else:
-                for erro in form_senha.errors.values():
-                    messages.error(request, erro)
+                for erros in form_senha.errors.values():
+                    for erro in erros:
+                        messages.error(request, erro)
 
     contexto = {
         'form_perfil': form_perfil,
@@ -798,111 +838,8 @@ def perfil_view(request):
         'perfil': perfil,
     }
     return render(request, 'financeiro/perfil.html', contexto)
-    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=request.user)
-    form_perfil = EditarPerfilForm(instance=request.user)
-    form_senha = PasswordChangeForm(user=request.user)
 
-    if request.method == 'POST':
-        if 'atualizar_perfil' in request.POST:
-            form_perfil = EditarPerfilForm(request.POST, request.FILES, instance=request.user)
-            if form_perfil.is_valid():
-                novo_email = form_perfil.cleaned_data.get('email', '').strip().lower()
-                email_atual = (request.user.email or '').strip().lower()
 
-                # Salva alterações de nome, foto e username (o e-mail continua o antigo)
-                form_perfil.save()
-
-                # Se o usuário digitou um e-mail diferente do atual:
-                if novo_email != email_atual:
-                    request.session['novo_email_pendente'] = novo_email
-                    try:
-                        enviar_email_codigo_verificacao(request.user, novo_email, 'ALTERACAO_EMAIL')
-                        messages.info(request, f"Enviamos um código de 6 dígitos para {novo_email}. Confirme para atualizar seu e-mail.")
-                        return redirect('confirmar_novo_email')
-                    except Exception as e:
-                        messages.error(request, f"Não foi possível enviar o código para o novo e-mail: {str(e)}")
-                        return redirect('perfil')
-
-                messages.success(request, "Perfil atualizado com sucesso!")
-                return redirect('perfil')
-            else:
-                for campo, erros in form_perfil.errors.items():
-                    for erro in erros:
-                        messages.error(request, erro)
-
-        elif 'remover_foto' in request.POST:
-            if perfil.foto:
-                perfil.foto.delete(save=True)
-                messages.success(request, "Fotografia removida com sucesso!")
-            return redirect('perfil')
-
-        elif 'alterar_senha' in request.POST:
-            form_senha = PasswordChangeForm(user=request.user, data=request.POST)
-            if form_senha.is_valid():
-                user = form_senha.save()
-                update_session_auth_hash(request, user)
-                messages.success(request, "Palavra-passe alterada com sucesso!")
-                return redirect('perfil')
-            else:
-                for erro in form_senha.errors.values():
-                    messages.error(request, erro)
-
-    contexto = {
-        'form_perfil': form_perfil,
-        'form_senha': form_senha,
-        'perfil': perfil,
-    }
-    return render(request, 'financeiro/perfil.html', contexto)
-    perfil, _ = PerfilUsuario.objects.get_or_create(usuario=request.user)
-    form_perfil = EditarPerfilForm(instance=request.user)
-    form_senha = PasswordChangeForm(user=request.user)
-
-    if request.method == 'POST':
-        if 'atualizar_perfil' in request.POST:
-            form_perfil = EditarPerfilForm(request.POST, request.FILES, instance=request.user)
-            if form_perfil.is_valid():
-                novo_email = form_perfil.cleaned_data.get('email', '').strip().lower()
-                email_atual = request.user.email
-
-                form_perfil.save()
-
-                if novo_email != email_atual:
-                    # Guarda o novo e-mail na sessão e envia código para ELE
-                    request.session['novo_email_pendente'] = novo_email
-                    enviar_email_codigo_verificacao(request.user, novo_email, 'ALTERACAO_EMAIL')
-                    messages.info(request, f"Enviamos um código de confirmação para {novo_email}. Digite-o para concluir a alteração.")
-                    return redirect('confirmar_novo_email')
-
-                messages.success(request, "Perfil atualizado com sucesso!")
-                return redirect('perfil')
-            else:
-                for campo, erros in form_perfil.errors.items():
-                    for erro in erros:
-                        messages.error(request, erro)
-
-        elif 'remover_foto' in request.POST:
-            if perfil.foto:
-                perfil.foto.delete(save=True)
-                messages.success(request, "Fotografia removida com sucesso!")
-            return redirect('perfil')
-
-        elif 'alterar_senha' in request.POST:
-            form_senha = PasswordChangeForm(user=request.user, data=request.POST)
-            if form_senha.is_valid():
-                user = form_senha.save()
-                update_session_auth_hash(request, user)
-                messages.success(request, "Palavra-passe alterada com sucesso!")
-                return redirect('perfil')
-            else:
-                for erro in form_senha.errors.values():
-                    messages.error(request, erro)
-
-    contexto = {
-        'form_perfil': form_perfil,
-        'form_senha': form_senha,
-        'perfil': perfil,
-    }
-    return render(request, 'financeiro/perfil.html', contexto)  
 @login_required
 def detalhes_transacao_excluida_view(request, transacao_id):
     transacao = get_object_or_404(Transacao, pk=transacao_id)
@@ -928,6 +865,8 @@ def detalhes_transacao_excluida_view(request, transacao_id):
         'url_restaurar': f"/transacao/{transacao.id}/restaurar/",
     }
     return JsonResponse(dados)
+
+
 @login_required
 def confirmar_novo_email_view(request):
     novo_email = request.session.get('novo_email_pendente')
@@ -938,7 +877,6 @@ def confirmar_novo_email_view(request):
     if request.method == 'POST':
         codigo_digitado = request.POST.get('codigo', '').strip()
         
-        # Ajustado: usa 'email' em vez de 'email_destino'
         codigo_obj = CodigoVerificacaoEmail.objects.filter(
             usuario=request.user,
             email=novo_email,
@@ -951,37 +889,6 @@ def confirmar_novo_email_view(request):
             codigo_obj.utilizado = True
             codigo_obj.save()
 
-            # E-mail validado com sucesso: atualiza no banco
-            request.user.email = novo_email
-            request.user.save()
-
-            del request.session['novo_email_pendente']
-            messages.success(request, "E-mail alterado e validado com sucesso!")
-            return redirect('perfil')
-        else:
-            messages.error(request, "Código incorreto ou expirado. Verifique e tente novamente.")
-
-    return render(request, 'financeiro/confirmar_novo_email.html', {'novo_email': novo_email})
-    novo_email = request.session.get('novo_email_pendente')
-    if not novo_email:
-        messages.error(request, "Nenhuma solicitação de alteração de e-mail pendente.")
-        return redirect('perfil')
-
-    if request.method == 'POST':
-        codigo_digitado = request.POST.get('codigo', '').strip()
-        codigo_obj = CodigoVerificacaoEmail.objects.filter(
-            usuario=request.user,
-            email_destino=novo_email,
-            codigo=codigo_digitado,
-            finalidade='ALTERACAO_EMAIL',
-            utilizado=False
-        ).order_by('-criado_em').first()
-
-        if codigo_obj and codigo_obj.esta_valido():
-            codigo_obj.utilizado = True
-            codigo_obj.save()
-
-            # E-mail validado: agora sim atualizamos o usuário
             request.user.email = novo_email
             request.user.save()
 

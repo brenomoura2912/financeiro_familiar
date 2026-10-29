@@ -536,7 +536,8 @@ class TransacaoForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, familiar=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        familiar = kwargs.pop('familiar', None)
         super().__init__(*args, **kwargs)
         if familiar:
-            self.fields['categoria'].queryset = Categoria.objects.filter(familiar=familiar).order_by('nome')
+            self.fields['categoria'].queryset = Categoria.objects.filter(familiar=familiar)
