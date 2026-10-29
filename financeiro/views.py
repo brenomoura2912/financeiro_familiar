@@ -43,6 +43,7 @@ from .models import (
     PerfilUsuario,
     Transacao,
     VinculoFamiliar,
+    CodigoRecuperacaoSenha,
 )
 
 
@@ -909,3 +910,89 @@ def reenviar_codigo_novo_email_view(request):
         messages.error(request, f"Erro ao reenviar o código: {str(e)}")
 
     return redirect('confirmar_novo_email')
+
+def esqueci_senha(request):
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        user = User.objects.filter(email=email).first()
+
+        if user:
+            obj_codigo = CodigoRecuperacaoSenha.gerar_codigo(user)
+            assunto = "Código de Recuperação de Senha - Gestão Financeira"
+            mensagem = (
+                f"Olá, {user.first_name or user.username}!\n\n"
+                f"Você solicitou a redefinição da sua senha.\n"
+                f"Seu código de validação é: {obj_codigo.codigo}\n\n"
+                f"Este código expira em 15 minutos.\n"
+                f"Caso você não tenha solicitado, ignore este e-mail."
+            )
+            send_mail(
+                assunto,
+                mensagem,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+            request.session['recuperacao_user_id'] = user.id
+            messages.success(request, "Código enviado para o seu e-mail cadastrado.")
+            return redirect('validar_codigo_senha')
+        else:
+            messages.error(request, "Não encontramos nenhuma conta vinculada a este e-mail.")
+
+    return render(request, 'financeiro/esqueci_senha.html')
+
+
+def validar_codigo_senha(request):
+    user_id = request.session.get('recuperacao_user_id')
+    if not user_id:
+        messages.error(request, "Sessão expirada. Inicie o processo novamente.")
+        return redirect('esqueci_senha')
+
+    if request.method == 'POST':
+        codigo = request.POST.get('codigo', '').strip()
+        user = User.objects.filter(id=user_id).first()
+
+        registro = CodigoRecuperacaoSenha.objects.filter(
+            user=user,
+            codigo=codigo,
+            utilizado=False
+        ).last()
+
+        if registro and not registro.expirado():
+            request.session['codigo_validado'] = True
+            return redirect('nova_senha')
+        else:
+            messages.error(request, "Código inválido ou expirado. Tente novamente.")
+
+    return render(request, 'financeiro/validar_codigo_senha.html')
+
+
+def nova_senha(request):
+    user_id = request.session.get('recuperacao_user_id')
+    validado = request.session.get('codigo_validado')
+
+    if not user_id or not validado:
+        messages.error(request, "Acesso não autorizado.")
+        return redirect('esqueci_senha')
+
+    if request.method == 'POST':
+        senha = request.POST.get('senha', '')
+        confirmar_senha = request.POST.get('confirmar_senha', '')
+
+        if len(senha) < 6:
+            messages.error(request, "A senha deve ter no mínimo 6 caracteres.")
+        elif senha != confirmar_senha:
+            messages.error(request, "As senhas não coincidem.")
+        else:
+            user = User.objects.get(id=user_id)
+            user.set_password(senha)
+            user.save()
+
+            CodigoRecuperacaoSenha.objects.filter(user=user, utilizado=False).update(utilizado=True)
+            request.session.pop('recuperacao_user_id', None)
+            request.session.pop('codigo_validado', None)
+
+            messages.success(request, "Senha alterada com sucesso! Faça login com suas novas credenciais.")
+            return redirect('login')
+
+    return render(request, 'financeiro/nova_senha.html')

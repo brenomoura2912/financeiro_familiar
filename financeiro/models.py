@@ -170,3 +170,18 @@ class LogAuditoria(models.Model):
 
     def __str__(self):
         return f"{self.acao} em {self.transacao.id} por {self.usuario}"
+
+class CodigoRecuperacaoSenha(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='codigos_recuperacao')
+    codigo = models.CharField(max_length=6)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    utilizado = models.BooleanField(default=False)
+
+    def expirado(self):
+        return timezone.now() > self.criado_em + timedelta(minutes=15)
+
+    @classmethod
+    def gerar_codigo(cls, user):
+        cls.objects.filter(user=user, utilizado=False).update(utilizado=True)
+        novo_codigo = f"{random.randint(100000, 999999)}"
+        return cls.objects.create(user=user, codigo=novo_codigo)

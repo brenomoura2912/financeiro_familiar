@@ -22,4 +22,7 @@ urlpatterns = [
     path('transacao/<int:transacao_id>/detalhes-excluida/', views.detalhes_transacao_excluida_view, name='detalhes_transacao_excluida'),
     path('perfil/confirmar-novo-email/', views.confirmar_novo_email_view, name='confirmar_novo_email'),
     path('perfil/reenviar-codigo-novo-email/', views.reenviar_codigo_novo_email_view, name='reenviar_codigo_novo_email'),
+    path('esqueci-senha/', views.esqueci_senha, name='esqueci_senha'),
+    path('validar-codigo/', views.validar_codigo_senha, name='validar_codigo_senha'),
+    path('nova-senha/', views.nova_senha, name='nova_senha'),
 ]
