@@ -25,4 +25,6 @@ urlpatterns = [
     path('esqueci-senha/', views.esqueci_senha, name='esqueci_senha'),
     path('validar-codigo/', views.validar_codigo_senha, name='validar_codigo_senha'),
     path('nova-senha/', views.nova_senha, name='nova_senha'),
+    path('familiar/<int:familiar_id>/arquivar/', views.arquivar_familiar, name='arquivar_familiar'),
+    path('familiar/<int:familiar_id>/excluir/', views.excluir_familiar, name='excluir_familiar'),
 ]

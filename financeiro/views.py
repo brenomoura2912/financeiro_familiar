@@ -280,8 +280,17 @@ def meus_familiares_view(request):
                 messages.error(request, "Não possui permissão para recusar membros.")
             return redirect('meus_familiares')
 
+    # Familiares ativos aprovados
     familiares = VinculoFamiliar.objects.filter(
         usuario=request.user, 
+        familiar__ativo=True,
+        status='APROVADO'
+    ).select_related('familiar')
+
+    # Familiares arquivados aprovados (para restaurar)
+    familiares_arquivados = VinculoFamiliar.objects.filter(
+        usuario=request.user,
+        familiar__ativo=False,
         status='APROVADO'
     ).select_related('familiar')
 
@@ -297,6 +306,8 @@ def meus_familiares_view(request):
 
     contexto = {
         'familiares': familiares,
+        'familiares_arquivados': familiares_arquivados,
+        'total_arquivados': familiares_arquivados.count(),
         'solicitacoes_pendentes': solicitacoes_pendentes,
         'total_pendentes': solicitacoes_pendentes.count(),
     }
@@ -307,7 +318,6 @@ def meus_familiares_view(request):
 def dashboard_view(request, familiar_id):
     familiar = get_object_or_404(Familiar, pk=familiar_id)
     vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
-    
 
     if not vinculo:
         messages.error(request, "Não possui permissão para aceder a este familiar.")
@@ -495,19 +505,62 @@ def alternar_fechamento_mes_view(request, familiar_id, ano, mes):
 
 
 @login_required
-def alternar_arquivamento_familiar_view(request, familiar_id):
-    familiar = get_object_or_404(Familiar, pk=familiar_id)
-    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO', papel='GESTOR').first()
-
+def arquivar_familiar(request, familiar_id):
+    familiar = get_object_or_404(Familiar, id=familiar_id)
+    
+    vinculo = VinculoFamiliar.objects.filter(
+        familiar=familiar, 
+        usuario=request.user, 
+        status='APROVADO',
+        papel='GESTOR'
+    ).first()
+    
     if not vinculo:
-        messages.error(request, "Apenas gestores podem arquivar ou desarquivar.")
-        return redirect('dashboard', familiar_id=familiar.id)
+        messages.error(request, "Apenas o gestor tem permissão para arquivar ou reativar este familiar.")
+        return redirect('meus_familiares')
 
-    familiar.ativo = not familiar.ativo
-    familiar.save()
+    if request.method == 'POST':
+        familiar.ativo = not familiar.ativo
+        familiar.save()
+        status_msg = "arquivado" if not familiar.ativo else "reativado"
+        messages.success(request, f"O acompanhamento de '{familiar.nome}' foi {status_msg} com sucesso.")
+        
+    return redirect('meus_familiares')
 
-    estado = "arquivado" if not familiar.ativo else "desarquivado"
-    messages.success(request, f"Familiar '{familiar.nome}' {estado} com sucesso.")
+
+@login_required
+def alternar_arquivamento_familiar_view(request, familiar_id):
+    # Alias mantido para compatibilidade com rotas antigas
+    return arquivar_familiar(request, familiar_id)
+
+
+@login_required
+def excluir_familiar(request, familiar_id):
+    familiar = get_object_or_404(Familiar, id=familiar_id)
+    
+    vinculo = VinculoFamiliar.objects.filter(
+        familiar=familiar, 
+        usuario=request.user, 
+        status='APROVADO',
+        papel='GESTOR'
+    ).first()
+    
+    if not vinculo:
+        messages.error(request, "Apenas o gestor tem permissão para excluir este acompanhamento.")
+        return redirect('meus_familiares')
+
+    if request.method == 'POST':
+        confirmacao = request.POST.get('confirmacao_nome', '').strip()
+        
+        if confirmacao != familiar.nome:
+            messages.error(request, f"Nome incorreto digitado. A exclusão de '{familiar.nome}' foi cancelada.")
+            return redirect('dashboard', familiar_id=familiar.id)
+
+        nome_familiar = familiar.nome
+        familiar.delete()
+        messages.success(request, f"O familiar '{nome_familiar}' e todos os seus registos foram excluídos definitivamente.")
+        return redirect('meus_familiares')
+
     return redirect('dashboard', familiar_id=familiar.id)
 
 
@@ -661,7 +714,7 @@ def criar_categoria_view(request, familiar_id):
 def excluir_categoria_view(request, categoria_id):
     categoria = get_object_or_404(Categoria, pk=categoria_id)
     familiar = categoria.familiar
-    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO' ).first()
+    vinculo = VinculoFamiliar.objects.filter(usuario=request.user, familiar=familiar, status='APROVADO').first()
 
     if not vinculo:
         messages.error(request, "Apenas gestores podem remover categorias.")
@@ -910,6 +963,7 @@ def reenviar_codigo_novo_email_view(request):
         messages.error(request, f"Erro ao reenviar o código: {str(e)}")
 
     return redirect('confirmar_novo_email')
+
 
 def esqueci_senha(request):
     if request.method == 'POST':

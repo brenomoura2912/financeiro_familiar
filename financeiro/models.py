@@ -62,6 +62,7 @@ class PerfilUsuario(models.Model):
 class Familiar(models.Model):
     nome = models.CharField(max_length=150)
     codigo_convite = models.CharField(max_length=20, unique=True, default=gerar_codigo_convite)
+    ativo = models.BooleanField(default=True)  
     criador = models.ForeignKey(User, on_delete=models.CASCADE, related_name='familias_criadas', null=True, blank=True)
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
