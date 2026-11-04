@@ -199,6 +199,89 @@ class EditarPerfilForm(forms.ModelForm):
         label="Foto de Perfil",
         required=False,
         widget=forms.FileInput(attrs={
+            'id': 'input-avatar-upload',
+            'accept': 'image/*',
+            'class': 'hidden'
+        })
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            nome_existente = self.instance.get_full_name().strip() or self.instance.first_name
+            self.fields['nome_completo'].initial = nome_existente
+            self.fields['email'].initial = self.instance.email
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username', '').strip()
+        if not username:
+            raise forms.ValidationError("O nome de usuário é obrigatório.")
+        if User.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este nome de usuário já está em uso por outra conta.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        if not email:
+            raise forms.ValidationError("O e-mail é obrigatório.")
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("Este e-mail já está cadastrado em outra conta.")
+        return email
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        nome_completo = self.cleaned_data.get('nome_completo', '').strip()
+        partes = nome_completo.split(' ', 1)
+        user.first_name = partes[0]
+        user.last_name = partes[1] if len(partes) > 1 else ''
+
+        # Mantém o e-mail original no banco; trocas de e-mail passam pela rota de validação com código de 6 dígitos
+        email_digitado = self.cleaned_data.get('email', '').strip().lower()
+        if self.instance and self.instance.pk:
+            user.email = self.instance.email
+        else:
+            user.email = email_digitado
+
+        if commit:
+            user.save()
+            perfil, _ = PerfilUsuario.objects.get_or_create(usuario=user)
+            foto_enviada = self.cleaned_data.get('foto')
+            if foto_enviada:
+                perfil.foto = foto_enviada
+                perfil.save()
+
+        return user
+        nome_completo = forms.CharField(
+        label="Nome Completo",
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    username = forms.CharField(
+        label="Nome de Usuário",
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    email = forms.EmailField(
+        label="E-mail",
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium'
+        })
+    )
+    foto = forms.ImageField(
+        label="Foto de Perfil",
+        required=False,
+        widget=forms.FileInput(attrs={
             'class': 'w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 dark:file:bg-slate-700 dark:file:text-slate-200 cursor-pointer'
         })
     )
