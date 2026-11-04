@@ -14,6 +14,12 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-200">
 
+  <!-- Toast Moderno Flutuante: Código Copiado -->
+  <div id="toast-copiado-familiares" class="fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900/90 dark:bg-slate-100/90 text-white dark:text-slate-900 shadow-2xl backdrop-blur-md border border-slate-700/50 dark:border-slate-300/50 text-xs font-semibold transform -translate-y-4 opacity-0 pointer-events-none transition-all duration-300">
+    <span class="text-emerald-400 dark:text-emerald-600 text-sm">📋</span>
+    <span>Código copiado com sucesso!</span>
+  </div>
+
   <header class="bg-indigo-600 dark:bg-indigo-700 border-b border-indigo-500/40 text-white sticky top-0 z-40 shadow-md transition-colors duration-200">
     <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
       
@@ -106,12 +112,17 @@
           </svg>
         </button>
 
+        <!-- Avatar com Foto de Perfil ou Iniciais -->
         <div class="relative">
           <button type="button"
                   id="user-menu-btn"
                   onclick="toggleUserMenu()"
-                  class="w-9 h-9 rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 font-bold text-white flex items-center justify-center text-sm shadow-md active:scale-95 transition focus:outline-none cursor-pointer">
-            {{ request.user.first_name|default:request.user.username|make_list|first|upper }}
+                  class="w-9 h-9 rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 font-bold text-white flex items-center justify-center text-sm shadow-md active:scale-95 transition focus:outline-none cursor-pointer overflow-hidden">
+            {% if request.user.perfil.foto %}
+              <img src="{{ request.user.perfil.foto.url }}" alt="{{ request.user.username }}" class="w-full h-full object-cover">
+            {% else %}
+              <span>{{ request.user.first_name|default:request.user.username|make_list|first|upper }}</span>
+            {% endif %}
           </button>
 
           <div id="user-menu-dropdown"
@@ -181,7 +192,7 @@
                     <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Código</span>
                     <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 tracking-wider text-xs">{{ item.familiar.codigo_convite }}</span>
                     <button type="button" 
-                            onclick="navigator.clipboard.writeText('{{ item.familiar.codigo_convite }}'); alert('Código copiado!')"
+                            onclick="copiarCodigoConvite('{{ item.familiar.codigo_convite }}')"
                             class="text-[11px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1 transition cursor-pointer">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                       Copiar
@@ -309,6 +320,25 @@
         }, 4000);
       }
     });
+
+    // Função de Cópia Moderna com Toast Flutuante
+    function copiarCodigoConvite(codigo) {
+      if (!codigo) return;
+      navigator.clipboard.writeText(codigo).then(() => {
+        const toast = document.getElementById('toast-copiado-familiares');
+        if (!toast) return;
+
+        toast.classList.remove('opacity-0', '-translate-y-4', 'pointer-events-none');
+        toast.classList.add('opacity-100', 'translate-y-0');
+
+        setTimeout(() => {
+          toast.classList.remove('opacity-100', 'translate-y-0');
+          toast.classList.add('opacity-0', '-translate-y-4', 'pointer-events-none');
+        }, 2500);
+      }).catch(err => {
+        console.error('Falha ao copiar:', err);
+      });
+    }
 
     function toggleNotifications() {
       const dropdown = document.getElementById('notifications-dropdown');

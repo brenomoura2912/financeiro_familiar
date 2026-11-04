@@ -1,3 +1,4 @@
+import colorsys
 import csv
 import io
 import json
@@ -47,6 +48,43 @@ from .models import (
 )
 
 
+PALETA_PADRAO_SISTEMA = [
+    '#6366f1',  # Índigo
+    '#ec4899',  # Rosa
+    '#f59e0b',  # Âmbar
+    '#10b981',  # Esmeralda
+    '#06b6d4',  # Ciano
+    '#8b5cf6',  # Violeta
+    '#f43f5e',  # Rosa Avermelhado
+    '#3b82f6',  # Azul
+    '#84cc16',  # Lima
+    '#d946ef',  # Fúcsia
+    '#14b8a6',  # Teal
+    '#f97316',  # Laranja
+    '#a855f7',  # Roxo
+    '#0ea5e9',  # Azul Céu
+    '#e11d48',  # Carmesim
+]
+
+
+def gerar_cor_unica(familiar):
+    cores_usadas = set(
+        Categoria.objects.filter(familiar=familiar)
+        .exclude(cor__isnull=True)
+        .exclude(cor__exact='')
+        .values_list('cor', flat=True)
+    )
+
+    for cor in PALETA_PADRAO_SISTEMA:
+        if cor not in cores_usadas:
+            return cor
+
+    total_existente = len(cores_usadas)
+    matiz = (total_existente * 0.618033988749895) % 1.0
+    rgb = colorsys.hls_to_rgb(matiz, 0.55, 0.75)
+    return '#{:02x}{:02x}{:02x}'.format(int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+
+
 def enviar_email_codigo_verificacao(usuario, email_destino, finalidade):
     codigo_obj = CodigoVerificacaoEmail.gerar_codigo(usuario, email_destino, finalidade)
     assunto = "Código de verificação - Gestão Financeira Familiar"
@@ -78,35 +116,34 @@ def login_view(request):
 
     if request.method == 'POST':
         identificador = (
-            request.POST.get('identificador') or 
             request.POST.get('username') or 
+            request.POST.get('identificador') or 
             request.POST.get('email') or 
             ''
         ).strip()
-
-        senha = request.POST.get('senha') or request.POST.get('password') or ''
+        senha = (
+            request.POST.get('password') or 
+            request.POST.get('senha') or 
+            ''
+        ).strip()
 
         usuario_obj = User.objects.filter(
-            Q(email__iexact=identificador) | Q(username__iexact=identificador),
-            is_active=True
+            Q(username__iexact=identificador) | Q(email__iexact=identificador)
         ).first()
 
-        if usuario_obj:
-            user = authenticate(request, username=usuario_obj.username, password=senha)
-            if user is not None:
-                login(request, user)
-                return redirect('meus_familiares')
+        if usuario_obj and usuario_obj.check_password(senha):
+            if not usuario_obj.is_active:
+                request.session['usuario_verificacao_id'] = usuario_obj.id
+                try:
+                    enviar_email_codigo_verificacao(usuario_obj, usuario_obj.email, 'CADASTRO')
+                    messages.info(request, "Sua conta ainda não foi ativada. Enviamos um novo código para o seu e-mail.")
+                except Exception:
+                    messages.info(request, "Sua conta não está ativa. Por favor, valide o código enviado ao seu e-mail.")
+                return redirect('verificar_email')
 
-        usuario_inativo = User.objects.filter(
-            Q(email__iexact=identificador) | Q(username__iexact=identificador),
-            is_active=False
-        ).first()
-
-        if usuario_inativo and usuario_inativo.check_password(senha):
-            request.session['usuario_verificacao_id'] = usuario_inativo.id
-            enviar_email_codigo_verificacao(usuario_inativo, usuario_inativo.email, 'CADASTRO')
-            messages.info(request, "A sua conta ainda não foi ativada. Enviámos um novo código para o seu e-mail.")
-            return redirect('verificar_email')
+            usuario_obj.backend = 'django.contrib.auth.backends.ModelBackend'
+            login(request, usuario_obj)
+            return redirect('meus_familiares')
 
         messages.error(request, "Nome de utilizador/e-mail ou palavra-passe incorretos.")
 
@@ -121,16 +158,17 @@ def cadastro_view(request):
         form = CadastroForm(request.POST)
         if form.is_valid():
             try:
-                with transaction.atomic():
-                    user = form.save()
-                    PerfilUsuario.objects.get_or_create(usuario=user)
-                    enviar_email_codigo_verificacao(user, user.email, 'CADASTRO')
+                user = form.save()
+                PerfilUsuario.objects.get_or_create(usuario=user)
+                enviar_email_codigo_verificacao(user, user.email, 'CADASTRO')
 
                 request.session['usuario_verificacao_id'] = user.id
                 messages.success(request, f"Código de ativação enviado para {user.email}!")
                 return redirect('verificar_email')
             except Exception as e:
-                messages.error(request, f"Falha no registo: {str(e)}")
+                if 'user' in locals() and user.pk:
+                    user.delete()
+                messages.error(request, f"Não foi possível enviar o e-mail de ativação: {str(e)}")
         else:
             for campo, erros in form.errors.items():
                 for erro in erros:
@@ -166,6 +204,7 @@ def verificar_email_view(request):
             usuario.save()
 
             del request.session['usuario_verificacao_id']
+            usuario.backend = 'django.contrib.auth.backends.ModelBackend'
             login(request, usuario)
             messages.success(request, "Conta ativada com sucesso!")
             return redirect('meus_familiares')
@@ -280,14 +319,12 @@ def meus_familiares_view(request):
                 messages.error(request, "Não possui permissão para recusar membros.")
             return redirect('meus_familiares')
 
-    # Familiares ativos aprovados
     familiares = VinculoFamiliar.objects.filter(
         usuario=request.user, 
         familiar__ativo=True,
         status='APROVADO'
     ).select_related('familiar')
 
-    # Familiares arquivados aprovados (para restaurar)
     familiares_arquivados = VinculoFamiliar.objects.filter(
         usuario=request.user,
         familiar__ativo=False,
@@ -373,18 +410,42 @@ def dashboard_view(request, familiar_id):
 
     despesas_por_cat = (
         transacoes.filter(tipo__in=['DESPESA', 'SAIDA'])
-        .values('categoria__nome', 'categoria__cor')
+        .values('categoria__nome')
         .annotate(total=Sum('valor'))
         .order_by('-total')
     )
 
+    # Cores dinâmicas e sem repetição para infinitas categorias
+    paleta_vibrante = [
+        '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#06b6d4',
+        '#8b5cf6', '#f43f5e', '#3b82f6', '#84cc16', '#d946ef',
+        '#14b8a6', '#f97316', '#a855f7', '#0ea5e9', '#e11d48'
+    ]
+
     chart_labels = []
     chart_values = []
     chart_colors = []
-    for item in despesas_por_cat:
-        chart_labels.append(item['categoria__nome'] or 'Sem Categoria')
-        chart_values.append(float(item['total']))
-        chart_colors.append(item['categoria__cor'] or '#6366f1')
+    lista_detalhes_categorias = []
+
+    for i, item in enumerate(despesas_por_cat):
+        nome_cat = item['categoria__nome'] or 'Sem Categoria'
+        total_cat = float(item['total'])
+
+        if i < len(paleta_vibrante):
+            cor = paleta_vibrante[i]
+        else:
+            matiz = (i * 0.618033988749895) % 1.0
+            rgb = colorsys.hls_to_rgb(matiz, 0.52, 0.78)
+            cor = '#{:02x}{:02x}{:02x}'.format(int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
+
+        chart_labels.append(nome_cat)
+        chart_values.append(total_cat)
+        chart_colors.append(cor)
+        lista_detalhes_categorias.append({
+            'nome': nome_cat,
+            'total': total_cat,
+            'cor': cor
+        })
 
     compradores_disponiveis = list(
         Transacao.objects.filter(familiar=familiar, ativo=True)
@@ -466,6 +527,7 @@ def dashboard_view(request, familiar_id):
         'chart_labels_json': json.dumps(chart_labels),
         'chart_values_json': json.dumps(chart_values),
         'chart_colors_json': json.dumps(chart_colors),
+        'lista_detalhes_categorias': lista_detalhes_categorias,
         'filtros_ativos': filtros_ativos,
         'busca_texto': busca_texto,
         'filtro_tipo': filtro_tipo,
@@ -530,7 +592,6 @@ def arquivar_familiar(request, familiar_id):
 
 @login_required
 def alternar_arquivamento_familiar_view(request, familiar_id):
-    # Alias mantido para compatibilidade com rotas antigas
     return arquivar_familiar(request, familiar_id)
 
 
@@ -692,8 +753,11 @@ def criar_categoria_view(request, familiar_id):
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
         tipo = request.POST.get('tipo', 'DESPESA')
-        cor = request.POST.get('cor', '#6366f1')
         icone = request.POST.get('icone', 'tag')
+
+        cor = request.POST.get('cor', '').strip()
+        if not cor or cor == '#6366f1':
+            cor = gerar_cor_unica(familiar)
 
         if nome:
             Categoria.objects.create(
@@ -829,16 +893,14 @@ def perfil_view(request):
 
     if request.method == 'POST':
         if 'atualizar_perfil' in request.POST:
-            email_banco = User.objects.filter(pk=request.user.pk).values_list('email', flat=True).first() or ''
-            email_banco = email_banco.strip().lower()
+            email_banco = request.user.email.strip().lower()
+            novo_email = request.POST.get('email', '').strip().lower()
 
             form_perfil = EditarPerfilForm(request.POST, request.FILES, instance=request.user)
             if form_perfil.is_valid():
-                novo_email = form_perfil.cleaned_data.get('email', '').strip().lower()
-
-                usuario_salvo = form_perfil.save(commit=False)
-                usuario_salvo.email = email_banco
-                usuario_salvo.save()
+                user = form_perfil.save(commit=False)
+                user.email = email_banco
+                user.save()
 
                 foto = form_perfil.cleaned_data.get('foto')
                 if foto:
@@ -846,13 +908,17 @@ def perfil_view(request):
                     perfil.save()
 
                 if novo_email and novo_email != email_banco:
+                    if User.objects.filter(email__iexact=novo_email).exclude(pk=request.user.pk).exists():
+                        messages.error(request, "Este novo e-mail já se encontra registrado em outra conta.")
+                        return redirect('perfil')
+
                     request.session['novo_email_pendente'] = novo_email
                     try:
                         enviar_email_codigo_verificacao(request.user, novo_email, 'ALTERACAO_EMAIL')
-                        messages.info(request, f"Enviamos um código de 6 dígitos para {novo_email}. Digite-o abaixo para confirmar a alteração.")
+                        messages.info(request, f"Enviamos um código de 6 dígitos para {novo_email}. Insira o código para confirmar.")
                         return redirect('confirmar_novo_email')
                     except Exception as e:
-                        messages.error(request, f"Não foi possível enviar o código para o novo e-mail: {str(e)}")
+                        messages.error(request, f"Erro ao enviar código para o novo e-mail: {str(e)}")
                         return redirect('perfil')
 
                 messages.success(request, "Perfil atualizado com sucesso!")
@@ -1040,6 +1106,7 @@ def nova_senha(request):
         else:
             user = User.objects.get(id=user_id)
             user.set_password(senha)
+            user.is_active = True
             user.save()
 
             CodigoRecuperacaoSenha.objects.filter(user=user, utilizado=False).update(utilizado=True)

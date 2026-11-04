@@ -19,12 +19,13 @@
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen transition-colors duration-200">
 
+  <!-- Toast Container -->
   <div class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
     {% if messages %}
       {% for message in messages %}
-        <div class="toast-item pointer-events-auto flex items-center justify-between p-3.5 rounded-2xl shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-x-0 opacity-100 {% if message.tags == 'error' %}bg-rose-50/95 dark:bg-rose-950/90 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200{% elif message.tags == 'info' %}bg-blue-50/95 dark:bg-blue-950/90 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200{% else %}bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200{% endif %}">
+        <div class="toast-item pointer-events-auto flex items-center justify-between p-3.5 rounded-2xl shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-x-0 opacity-100 {% if message.tags == 'error' %}bg-rose-50/95 dark:bg-rose-950/90 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200{% elif message.tags == 'info' %}bg-blue-50/95 dark:bg-blue-950/90 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200{% elif message.tags == 'warning' %}bg-amber-50/95 dark:bg-amber-950/90 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200{% else %}bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200{% endif %}">
           <div class="flex items-center gap-2.5 text-xs font-semibold">
-            <span class="text-base">{% if message.tags == 'error' %}⚠️{% elif message.tags == 'info' %}ℹ️{% else %}✅{% endif %}</span>
+            <span class="text-base">{% if message.tags == 'error' %}⚠️{% elif message.tags == 'info' %}ℹ️{% elif message.tags == 'warning' %}🔔{% else %}✅{% endif %}</span>
             <span>{{ message }}</span>
           </div>
           <button type="button" onclick="fecharToast(this.parentElement)" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs ml-3 font-bold transition">✕</button>
@@ -48,6 +49,7 @@
     </div>
   </div>
 
+  <!-- Barra de Navegação -->
   <nav class="bg-[#3b3dbf] dark:bg-[#161730] text-white px-3 sm:px-6 h-14 shadow-md border-b border-indigo-700/40 dark:border-slate-800 flex items-center relative z-40 transition-colors duration-200">
     <div class="max-w-6xl w-full mx-auto flex items-center justify-between gap-2">
       
@@ -150,8 +152,10 @@
     </div>
   </nav>
 
+  <!-- Conteúdo Principal -->
   <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
 
+    <!-- Barra de Filtros de Período e Exportações -->
     <div class="bg-white dark:bg-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
 
       <form method="get" class="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto">
@@ -171,6 +175,14 @@
           <span>Filtrar</span>
           <span class="text-[10px]">➔</span>
         </button>
+
+        {% if eh_gestor %}
+          <a href="{% url 'alternar_fechamento_mes' familiar_atual.id ano_selecionado mes_selecionado %}" 
+             onclick="return confirm('Deseja realmente {% if mes_travado %}reabrir{% else %}fechar{% endif %} esta competência?')" 
+             class="px-3 py-1.5 rounded-lg text-xs font-semibold transition border {% if mes_travado %}bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800{% else %}bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600{% endif %}">
+            {% if mes_travado %}🔓 Reabrir Mês{% else %}🔒 Fechar Mês{% endif %}
+          </a>
+        {% endif %}
       </form>
 
       <div class="flex items-center gap-2 w-full md:w-auto pt-2.5 md:pt-0 border-t border-slate-100 dark:border-slate-700 md:border-t-0">
@@ -191,6 +203,7 @@
 
     </div>
 
+    <!-- Cards de Totais -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
       <div class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <p class="text-xs uppercase tracking-wider font-bold text-slate-400">Total Entradas</p>
@@ -212,6 +225,7 @@
       </div>
     </section>
 
+    <!-- Gráfico de Distribuição de Gastos com Cores Dinâmicas e Únicas -->
     <section class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
         <div class="w-full sm:w-1/2 space-y-1 sm:space-y-2">
@@ -227,6 +241,7 @@
       </div>
     </section>
 
+    <!-- Grade: Formulário de Lançamento e Extrato de Movimentações -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <section class="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 {% if not familiar_atual.ativo or mes_travado %}opacity-60 pointer-events-none{% endif %}">
         <div class="flex items-center justify-between mb-4">
@@ -395,6 +410,7 @@
     </div>
   </main>
 
+  <!-- Modais do Gestor -->
   {% if eh_gestor %}
   <div id="modal-lixeira" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 space-y-4 text-slate-800 dark:text-slate-100">
@@ -709,6 +725,7 @@
   </div>
   {% endif %}
 
+  <!-- Modal Gerenciador de Categorias -->
   {% if familiar_atual.ativo %}
   <div id="modal-gerir-categorias" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full p-6 space-y-5 text-slate-800 dark:text-slate-100">
@@ -739,9 +756,10 @@
         <div class="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl">
           {% for cat in categorias %}
           <div class="p-2.5 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/50">
-            <div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0 cat-color-dot" data-color="{{ cat.cor|default:'#6366f1' }}"></span>
               <span class="text-xs font-semibold text-slate-800 dark:text-slate-100">{{ cat.nome }}</span>
-              <span class="text-[10px] ml-2 px-1.5 py-0.5 rounded {% if cat.tipo == 'RECEITA' %}bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200{% else %}bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200{% endif %} font-bold">
+              <span class="text-[10px] ml-1 px-1.5 py-0.5 rounded {% if cat.tipo == 'RECEITA' %}bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200{% else %}bg-rose-100 dark:bg-rose-900 text-rose-800 dark:text-rose-200{% endif %} font-bold">
                 {{ cat.get_tipo_display }}
               </span>
             </div>
@@ -765,9 +783,11 @@
   </div>
   {% endif %}
 
+  <!-- Scripts e Injeção de Dados do Django -->
   {{ chart_labels_json|json_script:"grafico-labels-data" }}
   {{ chart_values_json|json_script:"grafico-valores-data" }}
   {{ chart_colors_json|json_script:"grafico-colors-data" }}
+  {{ categorias_dict|json_script:"dados-categorias" }}
 
   <script>
     function atualizarIconeTema() {
@@ -902,6 +922,12 @@
         });
     }
 
+    // Gerador de cores vibrantes e sem repetição caso a paleta exceda
+    function gerarCorDistintaHSL(index) {
+      const matiz = (index * 137.508) % 360; // Proporção áurea angular
+      return `hsl(${matiz}, 70%, 55%)`;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.toast-item').forEach(t => setTimeout(() => fecharToast(t), 3500));
 
@@ -922,8 +948,11 @@
           if (typeof colors === 'string') colors = JSON.parse(colors);
 
           if (valores && valores.length > 0) {
-            const paletteDefault = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#14b8a6', '#f43f5e', '#84cc16', '#06b6d4'];
-            const coresFinais = (colors && colors.length === valores.length) ? colors : paletteDefault.slice(0, valores.length);
+            // Garante cores vibrantes, únicas e sem repetição para cada fatia do gráfico
+            const coresFinais = valores.map((_, i) => {
+              if (colors && colors[i]) return colors[i];
+              return gerarCorDistintaHSL(i);
+            });
 
             new Chart(canvasEl, {
               type: 'doughnut',
@@ -934,6 +963,7 @@
                   backgroundColor: coresFinais,
                   borderWidth: 2,
                   borderColor: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff',
+                  hoverOffset: 4
                 }]
               },
               options: {
@@ -977,59 +1007,60 @@
       el.classList.add('opacity-0', 'translate-x-full'); 
       setTimeout(() => el.remove(), 400); 
     }
-  </script>
 
-  {{ categorias_dict|json_script:"dados-categorias" }}
+    // Filtro dinâmico de categorias com base no tipo de lançamento
+    (function() {
+      function inicializarFiltroCategorias() {
+        const campoTipo = document.querySelector('select[name="tipo"]');
+        const campoCategoria = document.querySelector('select[name="categoria"]');
+        const scriptTag = document.getElementById('dados-categorias');
 
-  <script>
-  (function() {
-    function inicializarFiltroCategorias() {
-      const campoTipo = document.querySelector('select[name="tipo"]');
-      const campoCategoria = document.querySelector('select[name="categoria"]');
-      const scriptTag = document.getElementById('dados-categorias');
+        if (!campoTipo || !campoCategoria || !scriptTag) return;
 
-      if (!campoTipo || !campoCategoria || !scriptTag) return;
-
-      let tiposPorId = {};
-      try {
-        tiposPorId = JSON.parse(scriptTag.textContent);
-      } catch (e) {
-        tiposPorId = {};
-      }
-
-      const opcoesOriginais = Array.from(campoCategoria.options);
-
-      function filtrar() {
-        const tipoSelecionado = campoTipo.value;
-        const valorSelecionado = campoCategoria.value;
-
-        campoCategoria.innerHTML = '';
-
-        if (opcoesOriginais.length > 0) {
-          campoCategoria.appendChild(opcoesOriginais[0].cloneNode(true));
+        let tiposPorId = {};
+        try {
+          tiposPorId = JSON.parse(scriptTag.textContent);
+        } catch (e) {
+          tiposPorId = {};
         }
 
-        opcoesOriginais.slice(1).forEach(function(opt) {
-          const tipoDaCategoria = tiposPorId[opt.value];
-          if (!tipoSelecionado || !tipoDaCategoria || tipoDaCategoria === tipoSelecionado) {
-            campoCategoria.appendChild(opt.cloneNode(true));
-          }
-        });
+        const opcoesOriginais = Array.from(campoCategoria.options);
 
-        const aindaExiste = campoCategoria.querySelector('option[value="' + valorSelecionado + '"]');
-        campoCategoria.value = aindaExiste ? valorSelecionado : '';
+        function filtrar() {
+          const tipoSelecionado = campoTipo.value;
+          const valorSelecionado = campoCategoria.value;
+
+          campoCategoria.innerHTML = '';
+
+          if (opcoesOriginais.length > 0) {
+            campoCategoria.appendChild(opcoesOriginais[0].cloneNode(true));
+          }
+
+          opcoesOriginais.slice(1).forEach(function(opt) {
+            const tipoDaCategoria = tiposPorId[opt.value];
+            if (!tipoSelecionado || !tipoDaCategoria || tipoDaCategoria === tipoSelecionado) {
+              campoCategoria.appendChild(opt.cloneNode(true));
+            }
+          });
+
+          const aindaExiste = campoCategoria.querySelector('option[value="' + valorSelecionado + '"]');
+          campoCategoria.value = aindaExiste ? valorSelecionado : '';
+        }
+
+        campoTipo.addEventListener('change', filtrar);
+        filtrar();
       }
 
-      campoTipo.addEventListener('change', filtrar);
-      filtrar();
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', inicializarFiltroCategorias);
-    } else {
-      inicializarFiltroCategorias();
-    }
-  })();
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', inicializarFiltroCategorias);
+      } else {
+        inicializarFiltroCategorias();
+      }
+    })();
+    
+document.querySelectorAll('.cat-color-dot').forEach(el => {
+  el.style.backgroundColor = el.dataset.color;
+});    
   </script>
 </body>
 </html>

@@ -43,6 +43,103 @@ class CadastroForm(forms.ModelForm):
         })
     )
     password = forms.CharField(
+        label="Palavra-passe",
+        required=True,
+        widget=forms.PasswordInput(attrs={
+            'id': 'id_password',
+            'placeholder': '••••••••',
+            'class': 'w-full pl-3.5 pr-10 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm'
+        })
+    )
+    confirmar_password = forms.CharField(
+        label="Confirmar Palavra-passe",
+        required=True,
+        widget=forms.PasswordInput(attrs={
+            'id': 'id_confirmar_password',
+            'placeholder': '••••••••',
+            'class': 'w-full pl-3.5 pr-10 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm'
+        })
+    )
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password']
+
+    def full_clean(self):
+        if self.is_bound:
+            email = self.data.get('email', '').strip().lower()
+            username = self.data.get('username', '').strip()
+            if email:
+                User.objects.filter(email__iexact=email, is_active=False).delete()
+            if username:
+                User.objects.filter(username__iexact=username, is_active=False).delete()
+        super().full_clean()
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username', '').strip()
+        if not username:
+            raise forms.ValidationError("O nome de utilizador é obrigatório.")
+        if User.objects.filter(username__iexact=username, is_active=True).exists():
+            raise forms.ValidationError("Este nome de utilizador já se encontra registado.")
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        validar_formato_email_estrito(email)
+        if User.objects.filter(email__iexact=email, is_active=True).exists():
+            raise forms.ValidationError("Este e-mail já se encontra registado.")
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        senha = cleaned_data.get("password")
+        confirma = cleaned_data.get("confirmar_password")
+        if senha and confirma and senha != confirma:
+            self.add_error('confirmar_password', "As palavras-passe não coincidem.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        username = self.cleaned_data['username'].strip()
+        email = self.cleaned_data['email'].strip().lower()
+
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password'])
+        user.email = email
+        user.username = username
+        user.is_active = False
+
+        nome_completo = self.cleaned_data.get('nome_completo', '').strip()
+        partes = nome_completo.split(' ', 1)
+        user.first_name = partes[0]
+        user.last_name = partes[1] if len(partes) > 1 else ''
+
+        if commit:
+            user.save()
+        return user
+        nome_completo = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Ex: João da Silva',
+            'class': 'w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm'
+        })
+    )
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'placeholder': 'exemplo@gmail.com',
+            'class': 'w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm'
+        })
+    )
+    username = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'usuario123',
+            'class': 'w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm'
+        })
+    )
+    password = forms.CharField(
         required=True,
         widget=forms.PasswordInput(attrs={
             'placeholder': '••••••••',

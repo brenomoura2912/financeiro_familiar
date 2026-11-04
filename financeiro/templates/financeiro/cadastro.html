@@ -19,134 +19,146 @@
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-200">
 
   {% if messages %}
-    <div class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full">
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
       {% for message in messages %}
-        <div class="flex items-center justify-between p-3.5 rounded-xl shadow-lg border backdrop-blur-md {% if message.tags == 'error' %}bg-rose-50/95 dark:bg-rose-950/90 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200{% else %}bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200{% endif %}">
-          <span class="text-xs font-semibold">{{ message }}</span>
+        <div class="toast-item pointer-events-auto flex items-center justify-between p-3.5 rounded-2xl shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-x-0 opacity-100 {% if message.tags == 'error' %}bg-rose-50/95 dark:bg-rose-950/90 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200{% elif message.tags == 'info' %}bg-blue-50/95 dark:bg-blue-950/90 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200{% elif message.tags == 'warning' %}bg-amber-50/95 dark:bg-amber-950/90 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200{% else %}bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200{% endif %}">
+          <div class="flex items-center gap-2.5 text-xs font-semibold">
+            <span class="text-base">{% if message.tags == 'error' %}⚠️{% elif message.tags == 'info' %}ℹ️{% elif message.tags == 'warning' %}🔔{% else %}✅{% endif %}</span>
+            <span>{{ message }}</span>
+          </div>
+          <button type="button" onclick="fecharToast(this.parentElement)" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs ml-3 font-bold transition">✕</button>
         </div>
       {% endfor %}
     </div>
   {% endif %}
 
-  <div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700/80 p-8 space-y-6">
-    <div class="text-center space-y-2">
-      <div class="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
-        ✍️
+  <div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200/80 dark:border-slate-700/80 p-6 sm:p-8 space-y-6">
+    
+    <div class="text-center space-y-1.5">
+      <div class="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-inner border border-indigo-100 dark:border-indigo-800/50">
+        📝
       </div>
-      <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Criar Conta Única</h1>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Criar Conta Única</h1>
       <p class="text-xs text-slate-500 dark:text-slate-400">Cada participante deve possuir apenas um registo por e-mail</p>
     </div>
-
-    {% if form.non_field_errors %}
-      <div class="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-700 dark:text-rose-300">
-        {{ form.non_field_errors.0 }}
-      </div>
-    {% endif %}
 
     <form method="post" class="space-y-4">
       {% csrf_token %}
 
       <div>
-        <label for="id_nome_completo" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-          Nome Completo:
-        </label>
-        <input type="text" 
-               name="nome_completo" 
-               id="id_nome_completo" 
-               value="{{ form.nome_completo.value|default:'' }}"
-               required 
-               placeholder="Ex: João da Silva" 
-               class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
+        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Nome Completo:</label>
+        {{ form.nome_completo }}
         {% if form.nome_completo.errors %}
-          <span class="text-xs text-rose-500 mt-1 block font-medium">{{ form.nome_completo.errors.0 }}</span>
+          <span class="text-xs text-rose-500 mt-1 block">{{ form.nome_completo.errors.0 }}</span>
         {% endif %}
       </div>
 
       <div>
-        <label for="id_email" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-          E-mail (Chave Única):
-        </label>
-        <input type="email" 
-               name="email" 
-               id="id_email" 
-               value="{{ form.email.value|default:'' }}"
-               required 
-               placeholder="exemplo@gmail.com" 
-               class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border {% if form.email.errors %}border-rose-500 focus:ring-rose-500{% else %}border-slate-300 dark:border-slate-600 focus:ring-indigo-500{% endif %} rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 transition shadow-sm">
+        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">E-mail (Chave Única):</label>
+        {{ form.email }}
         {% if form.email.errors %}
-          <span class="text-xs text-rose-500 mt-1 block font-medium">{{ form.email.errors.0 }}</span>
+          <span class="text-xs text-rose-500 mt-1 block">{{ form.email.errors.0 }}</span>
         {% endif %}
       </div>
 
       <div>
-        <label for="id_username" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-          Nome de Utilizador:
-        </label>
-        <input type="text" 
-               name="username" 
-               id="id_username" 
-               value="{{ form.username.value|default:'' }}"
-               required 
-               placeholder="usuario123" 
-               class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border {% if form.username.errors %}border-rose-500 focus:ring-rose-500{% else %}border-slate-300 dark:border-slate-600 focus:ring-indigo-500{% endif %} rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 transition shadow-sm">
+        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Nome de Utilizador:</label>
+        {{ form.username }}
         {% if form.username.errors %}
-          <span class="text-xs text-rose-500 mt-1 block font-medium">{{ form.username.errors.0 }}</span>
+          <span class="text-xs text-rose-500 mt-1 block">{{ form.username.errors.0 }}</span>
         {% endif %}
       </div>
 
       <div>
-        <label for="id_password" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-          Palavra-passe:
-        </label>
-        <input type="password" 
-               name="password" 
-               id="id_password" 
-               required 
-               autocomplete="new-password"
-               placeholder="••••••••" 
-               class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border {% if form.password.errors %}border-rose-500 focus:ring-rose-500{% else %}border-slate-300 dark:border-slate-600 focus:ring-indigo-500{% endif %} rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 transition shadow-sm">
+        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Palavra-passe:</label>
+        <div class="relative">
+          {{ form.password }}
+          <button type="button" 
+                  tabindex="-1"
+                  onclick="alternarVisibilidadeSenha('id_password', this)" 
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm focus:outline-none select-none transition">
+            👁️
+          </button>
+        </div>
         {% if form.password.errors %}
-          <span class="text-xs text-rose-500 mt-1 block font-medium">{{ form.password.errors.0 }}</span>
+          <span class="text-xs text-rose-500 mt-1 block">{{ form.password.errors.0 }}</span>
+        {% endif %}
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Confirmar Palavra-passe:</label>
+        <div class="relative">
+          {{ form.confirmar_password }}
+          <button type="button" 
+                  tabindex="-1"
+                  onclick="alternarVisibilidadeSenha('id_confirmar_password', this)" 
+                  class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm focus:outline-none select-none transition">
+            👁️
+          </button>
+        </div>
+        {% if form.confirmar_password.errors %}
+          <span class="text-xs text-rose-500 mt-1 block">{{ form.confirmar_password.errors.0 }}</span>
         {% endif %}
       </div>
 
       <button type="submit" 
-              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-xs sm:text-sm transition shadow-md shadow-indigo-600/20 active:scale-[0.98]">
+              class="w-full bg-[#4338ca] hover:bg-[#3730a3] text-white text-xs sm:text-sm font-semibold py-2.5 rounded-xl transition shadow-md shadow-indigo-600/20 active:scale-[0.98] mt-2">
         Concluir Registo
       </button>
     </form>
 
-    <div class="text-center pt-2 border-t border-slate-100 dark:border-slate-700/70">
+    <div class="text-center pt-2 border-t border-slate-100 dark:border-slate-700/80">
       <p class="text-xs text-slate-500 dark:text-slate-400">
         Já tem uma conta registada? 
-        <a href="{% url 'login' %}" class="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-          Iniciar Sessão
-        </a>
+        <a href="{% url 'login' %}" class="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">Iniciar Sessão</a>
       </p>
     </div>
+
   </div>
 
   <div class="mt-6">
     <button type="button" 
             onclick="alternarTema()" 
-            class="flex items-center gap-2 px-3.5 py-2 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+            class="px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5">
       <span id="icone-tema">🌙</span>
       <span id="texto-tema">Modo Escuro</span>
     </button>
   </div>
 
   <script>
-    function atualizarTemaUI() {
+    function alternarVisibilidadeSenha(campoId, botao) {
+      const input = document.getElementById(campoId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        botao.innerText = '🙈';
+      } else {
+        input.type = 'password';
+        botao.innerText = '👁️';
+      }
+    }
+
+    function fecharToast(el) {
+      if (!el) return;
+      el.classList.add('opacity-0', 'translate-x-full');
+      setTimeout(() => el.remove(), 400);
+    }
+
+    document.querySelectorAll('.toast-item').forEach(toast => {
+      setTimeout(() => fecharToast(toast), 3500);
+    });
+
+    function atualizarBotaoTema() {
       const isDark = document.documentElement.classList.contains('dark');
       const icone = document.getElementById('icone-tema');
       const texto = document.getElementById('texto-tema');
       if (icone && texto) {
         if (isDark) {
-          icone.textContent = '☀️';
-          texto.textContent = 'Modo Claro';
+          icone.innerText = '☀️';
+          texto.innerText = 'Modo Claro';
         } else {
-          icone.textContent = '🌙';
-          texto.textContent = 'Modo Escuro';
+          icone.innerText = '🌙';
+          texto.innerText = 'Modo Escuro';
         }
       }
     }
@@ -159,9 +171,10 @@
         document.documentElement.classList.add('dark');
         localStorage.setItem('theme', 'dark');
       }
-      atualizarTemaUI();
+      atualizarBotaoTema();
     }
-    atualizarTemaUI();
+
+    atualizarBotaoTema();
   </script>
 </body>
 </html>
