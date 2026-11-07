@@ -1,36 +1,126 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recuperar Senha</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperar Senha - Gestão Financeira Familiar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+    // Sincroniza imediatamente com o tema ativo antes de renderizar a página
+    if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 min-h-screen flex items-center justify-center p-4">
-    <div class="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 border border-slate-200 dark:border-slate-700">
-        <h2 class="text-2xl font-bold text-slate-800 dark:text-white text-center mb-2">Recuperar Senha</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">Informe seu e-mail cadastrado para enviarmos o código de segurança.</p>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans min-h-screen flex flex-col items-center justify-center p-4 transition-colors duration-200">
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="mb-4 p-3 rounded-lg text-sm {% if message.tags == 'error' %}bg-rose-100 text-rose-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-
-        <form method="POST" class="space-y-4">
-            {% csrf_token %}
-            <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">E-mail</label>
-                <input type="email" name="email" required placeholder="seuemail@exemplo.com" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition">Enviar Código</button>
-        </form>
-
-        <div class="mt-6 text-center">
-            <a href="{% url 'login' %}" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">Voltar para o Login</a>
+  <!-- Bloco de Mensagens / Toasts Flutuantes -->
+  {% if messages %}
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+      {% for message in messages %}
+        <div class="toast-item pointer-events-auto flex items-center justify-between p-3.5 rounded-2xl shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-x-0 opacity-100 {% if message.tags == 'error' %}bg-rose-50/95 dark:bg-rose-950/90 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200{% elif message.tags == 'info' %}bg-blue-50/95 dark:bg-blue-950/90 border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200{% elif message.tags == 'warning' %}bg-amber-50/95 dark:bg-amber-950/90 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200{% else %}bg-emerald-50/95 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200{% endif %}">
+          <div class="flex items-center gap-2.5 text-xs font-semibold">
+            <span class="text-base">{% if message.tags == 'error' %}⚠️{% elif message.tags == 'info' %}ℹ️{% elif message.tags == 'warning' %}🔔{% else %}✅{% endif %}</span>
+            <span>{{ message }}</span>
+          </div>
+          <button type="button" onclick="fecharToast(this.parentElement)" class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs ml-3 font-bold transition">✕</button>
         </div>
+      {% endfor %}
     </div>
+  {% endif %}
+
+  <!-- Cartão de Recuperação de Senha -->
+  <div class="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200/80 dark:border-slate-700/80 p-6 sm:p-8 space-y-6">
+    
+    <div class="text-center space-y-1.5">
+      <div class="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-inner border border-indigo-100 dark:border-indigo-800/50">
+        🔑
+      </div>
+      <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Recuperar Senha</h1>
+      <p class="text-xs text-slate-500 dark:text-slate-400">Insira o seu e-mail cadastrado para receber o código de validação</p>
+    </div>
+
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+
+      <div>
+        <label for="id_email" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">E-mail Cadastrado:</label>
+        <input type="email" 
+               name="email" 
+               id="id_email" 
+               required 
+               placeholder="exemplo@gmail.com" 
+               class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm">
+      </div>
+
+      <button type="submit" 
+              class="w-full bg-[#4338ca] hover:bg-[#3730a3] text-white text-xs sm:text-sm font-semibold py-2.5 rounded-xl transition shadow-md shadow-indigo-600/20 active:scale-[0.98] mt-2">
+        Enviar Código de Recuperação
+      </button>
+    </form>
+
+    <div class="text-center pt-2 border-t border-slate-100 dark:border-slate-700/80">
+      <p class="text-xs text-slate-500 dark:text-slate-400">
+        Lembrou-se da sua senha? 
+        <a href="{% url 'login' %}" class="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">Voltar ao Login</a>
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Botão de Alternância de Tema Claro / Escuro -->
+  <div class="mt-6">
+    <button type="button" 
+            onclick="alternarTema()" 
+            class="px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5">
+      <span id="icone-tema">🌙</span>
+      <span id="texto-tema">Modo Escuro</span>
+    </button>
+  </div>
+
+  <script>
+    function fecharToast(el) {
+      if (!el) return;
+      el.classList.add('opacity-0', 'translate-x-full');
+      setTimeout(() => el.remove(), 400);
+    }
+
+    document.querySelectorAll('.toast-item').forEach(toast => {
+      setTimeout(() => fecharToast(toast), 3500);
+    });
+
+    function atualizarBotaoTema() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const icone = document.getElementById('icone-tema');
+      const texto = document.getElementById('texto-tema');
+      if (icone && texto) {
+        if (isDark) {
+          icone.innerText = '☀️';
+          texto.innerText = 'Modo Claro';
+        } else {
+          icone.innerText = '🌙';
+          texto.innerText = 'Modo Escuro';
+        }
+      }
+    }
+
+    function alternarTema() {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      }
+      atualizarBotaoTema();
+    }
+
+    atualizarBotaoTema();
+  </script>
 </body>
 </html>
