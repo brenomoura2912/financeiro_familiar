@@ -158,17 +158,21 @@ def cadastro_view(request):
         form = CadastroForm(request.POST)
         if form.is_valid():
             try:
-                user = form.save()
-                PerfilUsuario.objects.get_or_create(usuario=user)
-                enviar_email_codigo_verificacao(user, user.email, 'CADASTRO')
+                with transaction.atomic():
+                    user = form.save()
+                    PerfilUsuario.objects.get_or_create(usuario=user)
+                    enviar_email_codigo_verificacao(user, user.email, 'CADASTRO')
 
                 request.session['usuario_verificacao_id'] = user.id
                 messages.success(request, f"Código de ativação enviado para {user.email}!")
                 return redirect('verificar_email')
             except Exception as e:
-                if 'user' in locals() and user.pk:
-                    user.delete()
-                messages.error(request, f"Não foi possível enviar o e-mail de ativação: {str(e)}")
+                print(f"Erro no envio de e-mail no cadastro: {e}")
+                messages.error(
+                    request, 
+                    "Não foi possível enviar o código de verificação para o e-mail informado. O cadastro não foi realizado; por favor, tente novamente."
+                )
+                return render(request, 'financeiro/cadastro.html', {'form': form})
         else:
             for campo, erros in form.errors.items():
                 for erro in erros:
@@ -415,7 +419,6 @@ def dashboard_view(request, familiar_id):
         .order_by('-total')
     )
 
-    # Cores dinâmicas e sem repetição para infinitas categorias
     paleta_vibrante = [
         '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#06b6d4',
         '#8b5cf6', '#f43f5e', '#3b82f6', '#84cc16', '#d946ef',
@@ -1046,16 +1049,24 @@ def esqueci_senha(request):
                 f"Este código expira em 15 minutos.\n"
                 f"Caso você não tenha solicitado, ignore este e-mail."
             )
-            send_mail(
-                assunto,
-                mensagem,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
-            request.session['recuperacao_user_id'] = user.id
-            messages.success(request, "Código enviado para o seu e-mail cadastrado.")
-            return redirect('validar_codigo_senha')
+            try:
+                send_mail(
+                    assunto,
+                    mensagem,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=False,
+                )
+                request.session['recuperacao_user_id'] = user.id
+                messages.success(request, "Código enviado para o seu e-mail cadastrado.")
+                return redirect('validar_codigo_senha')
+            except Exception as e:
+                print(f"Erro ao enviar e-mail de recuperação: {e}")
+                messages.error(
+                    request,
+                    "Houve um problema de conexão ao enviar o código para o seu e-mail. Por favor, tente novamente dentro de instantes."
+                )
+                return render(request, 'financeiro/esqueci_senha.html')
         else:
             messages.error(request, "Não encontramos nenhuma conta vinculada a este e-mail.")
 

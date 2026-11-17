@@ -105,6 +105,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 10  # Evita que a requisição trave se a conexão cair
+
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'brenomoura3721@gmail.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'hrysptsnthqhxcti')
-DEFAULT_FROM_EMAIL = f"Gestão Financeira Familiar <{EMAIL_HOST_USER}>"
+
+# Use o e-mail puro no remetente para evitar rejeição de cabeçalho no Gmail:
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
