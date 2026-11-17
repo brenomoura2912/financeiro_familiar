@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'anymail',
     'financeiro',
 ]
 
@@ -100,15 +101,10 @@ LOGOUT_REDIRECT_URL = 'login'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Configuração de Envio de E-mails
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_TIMEOUT = 10  # Evita que a requisição trave se a conexão cair
-
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'brenomoura3721@gmail.com')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'hrysptsnthqhxcti')
-
-# Use o e-mail puro no remetente para evitar rejeição de cabeçalho no Gmail:
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# Configuração de Envio de E-mails (Brevo via API HTTPS)
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
+ANYMAIL = {
+    "BREVO_API_KEY": os.getenv("BREVO_API_KEY"),
+}
+DEFAULT_FROM_EMAIL = "brenomoura3721@gmail.com"
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
