@@ -27,4 +27,5 @@ urlpatterns = [
     path('nova-senha/', views.nova_senha, name='nova_senha'),
     path('familiar/<int:familiar_id>/arquivar/', views.arquivar_familiar, name='arquivar_familiar'),
     path('familiar/<int:familiar_id>/excluir/', views.excluir_familiar, name='excluir_familiar'),
+    path('familiar/<int:familiar_id>/remover-membro/<int:vinculo_id>/', views.remover_membro_view, name='remover_membro'),
 ]

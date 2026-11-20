@@ -1128,3 +1128,32 @@ def nova_senha(request):
             return redirect('login')
 
     return render(request, 'financeiro/nova_senha.html')
+
+
+@login_required
+def remover_membro_view(request, familiar_id, vinculo_id):
+    familiar = get_object_or_404(Familiar, id=familiar_id)
+
+    vinculo_gestor = VinculoFamiliar.objects.filter(
+        familiar=familiar,
+        usuario=request.user,
+        status='APROVADO',
+        papel='GESTOR'
+    ).first()
+
+    if not vinculo_gestor:
+        messages.error(request, "Apenas o gestor tem permissão para remover membros deste grupo.")
+        return redirect('dashboard', familiar_id=familiar.id)
+
+    if request.method == 'POST':
+        vinculo_alvo = get_object_or_404(VinculoFamiliar, id=vinculo_id, familiar=familiar)
+
+        if vinculo_alvo.usuario == request.user:
+            messages.error(request, "Você não pode remover a si mesmo como gestor.")
+            return redirect('dashboard', familiar_id=familiar.id)
+
+        nome_membro = vinculo_alvo.usuario.first_name or vinculo_alvo.usuario.username
+        vinculo_alvo.delete()
+        messages.success(request, f"{nome_membro} foi removido(a) do grupo familiar.")
+
+    return redirect('dashboard', familiar_id=familiar.id)
